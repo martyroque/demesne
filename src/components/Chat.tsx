@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import IntentParserService from '../services/intent-parser';
 import OllamaService, { type Message } from '../services/ollama';
 import HomeAssistantService, { type HAEntity } from '../services/home-assistant';
+import { VoiceInput } from './VoiceInput';
 
 export const Chat: React.FC = () => {
   const intentParserService = useStore(IntentParserService);
@@ -25,22 +26,18 @@ export const Chat: React.FC = () => {
     loadEntities();
   }, []);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
-
-    const userMessage: Message = { role: 'user', content: input };
+  const processCommand = async (command: string) => {
+    const userMessage: Message = { role: 'user', content: command };
     setMessages((prev) => [...prev, userMessage]);
-    setInput('');
     setLoading(true);
 
     try {
       // Check if this is a home control request
-      const isHomeControl = /turn|set|dim|bright|temperature|thermostat|light/i.test(input);
+      const isHomeControl = /turn|set|dim|bright|temperature|thermostat|light|fan|switch/i.test(command);
 
       if (isHomeControl) {
-        // Parse intent and execute
         const entityIds = entities.map((e) => e.entity_id);
-        const result = await intentParserService.parseAndExecute(input, entityIds);
+        const result = await intentParserService.parseAndExecute(command, entityIds);
 
         const assistantMessage: Message = {
           role: 'assistant',
@@ -49,7 +46,6 @@ export const Chat: React.FC = () => {
         setMessages((prev) => [...prev, assistantMessage]);
 
       } else {
-        // Regular chat
         const response = await ollamaService.chat('llama3.1:8b', [
           ...messages,
           userMessage,
@@ -70,26 +66,73 @@ export const Chat: React.FC = () => {
     }
   };
 
+  const handleSend = async () => {
+    if (!input.trim()) return;
+    await processCommand(input);
+    setInput('');
+  };
+
+  const handleVoiceTranscript = async (transcript: string) => {
+    if (!transcript.trim()) return;
+    await processCommand(transcript);
+  };
+
   return (
-    <div className="chat-container">
-      <div className="messages">
+    <div className="chat-container" style={{ padding: '20px' }}>
+      <h2>Zion Node Control</h2>
+      
+      <div className="messages" style={{ 
+        minHeight: '400px', 
+        maxHeight: '400px', 
+        overflowY: 'auto',
+        border: '1px solid #ccc',
+        padding: '10px',
+        marginBottom: '20px'
+      }}>
         {messages.map((msg, idx) => (
-          <div key={idx} className={`message ${msg.role}`}>
-            <strong>{msg.role}:</strong> {msg.content}
+          <div 
+            key={idx} 
+            className={`message ${msg.role}`}
+            style={{
+              margin: '10px 0',
+              padding: '10px',
+              // backgroundColor: msg.role === 'user' ? '#e3f2fd' : '#f5f5f5',
+              borderRadius: '8px'
+            }}
+          >
+            <strong>{msg.role === 'user' ? 'You' : 'Zion'}:</strong> {msg.content}
           </div>
         ))}
-        {loading && <div className="message assistant">Thinking...</div>}
+        {loading && (
+          <div className="message assistant" style={{ fontStyle: 'italic', color: '#666' }}>
+            Thinking...
+          </div>
+        )}
+      </div>
+      
+      {/* Voice Input */}
+      <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <VoiceInput onTranscript={handleVoiceTranscript} />
+        <div style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
+          Click microphone and speak your command
+        </div>
       </div>
 
-      <div className="input-area">
+      {/* Text Input (backup) */}
+      <div className="input-area" style={{ display: 'flex', gap: '10px' }}>
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="Ask me anything or control your home..."
+          placeholder="Or type your command..."
+          style={{ flex: 1, padding: '10px', fontSize: '16px' }}
         />
-        <button onClick={handleSend} disabled={loading}>
+        <button 
+          onClick={handleSend} 
+          disabled={loading}
+          style={{ padding: '10px 20px', fontSize: '16px' }}
+        >
           Send
         </button>
       </div>
