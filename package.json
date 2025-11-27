@@ -1,5 +1,6 @@
 {
-  "name": "zion-node-interface",
+  "name": "demesne",
+  "description": "Zion Network node interface",
   "private": true,
   "version": "0.0.0",
   "type": "module",
