@@ -53,6 +53,20 @@ class HomeAssistantService extends Store {
     const domain = entityId.split('.')[0];
     return this.callService(domain, 'turn_off', { entity_id: entityId });
   }
+
+  async setBrightness(entityId: string, brightness: number) {
+    return this.callService('light', 'turn_on', {
+      entity_id: entityId,
+      brightness: Math.round((brightness / 100) * 255),
+    });
+  }
+
+  async setColor(entityId: string, rgb: [number, number, number]) {
+    return this.callService('light', 'turn_on', {
+      entity_id: entityId,
+      rgb_color: rgb,
+    });
+  }
 }
 
 export default HomeAssistantService;

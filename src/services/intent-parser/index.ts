@@ -7,14 +7,15 @@ const SYSTEM_PROMPT = `You are a home automation assistant. Parse user requests 
 Available actions:
 - turnOn: Turn on a device
 - turnOff: Turn off a device  
-- setTemperature: Set thermostat temperature
 - setBrightness: Set light brightness (0-100)
+- setColor: Set light color (name like "red", "blue", "warm white")
 
 Response format:
 {
   "actions": [
     {"type": "turnOn", "entity": "light.living_room"},
-    {"type": "setTemperature", "entity": "climate.thermostat", "value": 72}
+    {"type": "setBrightness", "entity": "light.office", "value": 72}
+    {"type": "setColor", "entity": "light.bedroom", "value": "red"}
   ],
   "response": "Natural language confirmation of what you're doing"
 }
@@ -22,15 +23,28 @@ Response format:
 Only return valid JSON, no additional text.`;
 
 export interface HAAction {
-  type: 'turnOn' | 'turnOff' | 'setTemperature' | 'setBrightness';
+  type: 'turnOn' | 'turnOff' | 'setBrightness' | 'setColor';
   entity: string;
-  value?: number;
+  value?: number | string;
 }
 
 export interface IntentResult {
   actions: HAAction[];
   response: string;
 }
+
+const COLORS: Record<string, [number, number, number]> = {
+  'red': [255, 0, 0],
+  'green': [0, 255, 0],
+  'blue': [0, 0, 255],
+  'white': [255, 255, 255],
+  'warm white': [255, 149, 46],
+  'cool white': [200, 220, 255],
+  'yellow': [255, 255, 0],
+  'purple': [128, 0, 128],
+  'orange': [255, 165, 0],
+  'pink': [255, 192, 203],
+};
 
 class IntentParserService extends Store {
   private ollamaService = this.inject(OllamaService);
@@ -50,13 +64,9 @@ class IntentParserService extends Store {
     ];
 
     try {
-      // Get LLM to parse intent
       const chatResponse = await this.ollamaService.chat('llama3.1:8b', messages);
-
-      // Parse JSON response
       const intent: IntentResult = JSON.parse(chatResponse.message.content);
 
-      // Execute actions
       const results = await Promise.all(
         intent.actions.map(async (action) => {
           switch (action.type) {
@@ -64,6 +74,15 @@ class IntentParserService extends Store {
               return this.homeAssistantService.turnOn(action.entity);
             case 'turnOff':
               return this.homeAssistantService.turnOff(action.entity);
+            case 'setBrightness':
+              return this.homeAssistantService.setBrightness(
+                action.entity,
+                action.value as number
+              );
+            case 'setColor':
+              const colorName = (action.value as string).toLowerCase();
+              const rgb = COLORS[colorName] || COLORS['white'];
+              return this.homeAssistantService.setColor(action.entity, rgb);
           }
         })
       );

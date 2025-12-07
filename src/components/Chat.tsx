@@ -68,8 +68,8 @@ export const Chat: React.FC = () => {
 
   const handleSend = async () => {
     if (!input.trim()) return;
-    await processCommand(input);
     setInput('');
+    await processCommand(input);
   };
 
   const handleVoiceTranscript = async (transcript: string) => {
