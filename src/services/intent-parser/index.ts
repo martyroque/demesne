@@ -17,7 +17,7 @@ Response format:
     {"type": "setBrightness", "entity": "light.office", "value": 72}
     {"type": "setColor", "entity": "light.bedroom", "value": "red"}
   ],
-  "response": "Natural language confirmation of what you're doing"
+  "response": [Natural language confirmation of what you're doing]
 }
 
 Only return valid JSON, no additional text.`;
@@ -64,10 +64,12 @@ class IntentParserService extends Store {
     ];
 
     try {
-      const chatResponse = await this.ollamaService.chat('llama3.1:8b', messages);
+      const chatResponse = await this.ollamaService.chat('llama3.2:3b', messages);
       const intent: IntentResult = JSON.parse(chatResponse.message.content);
 
-      const results = await Promise.all(
+      console.log("IntentParserService | intent", intent);
+
+      await Promise.all(
         intent.actions.map(async (action) => {
           switch (action.type) {
             case 'turnOn':
@@ -86,8 +88,6 @@ class IntentParserService extends Store {
           }
         })
       );
-
-      console.log("IntentParserService", results);
 
       return {
         executed: true,
