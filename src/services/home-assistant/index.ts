@@ -13,6 +13,7 @@ export interface HAEntity {
 }
 
 class HomeAssistantService extends Store {
+  public entities = this.atom<HAEntity[]>([]);
   private haClient = axios.create({
     baseURL: `${HA_URL}/api`,
     headers: {
@@ -20,6 +21,16 @@ class HomeAssistantService extends Store {
       "Content-Type": "application/json",
     },
   });
+
+  constructor() {
+    super();
+    this.loadStates();
+  }
+
+  private async loadStates() {
+    const states = await this.getStates();
+    this.entities.value = states;
+  }
 
   private async callService(
     domain: string,
@@ -35,7 +46,6 @@ class HomeAssistantService extends Store {
 
   async getStates(): Promise<HAEntity[]> {
     const response = await this.haClient.get("/states");
-    console.log("HomeAssistantService", response.data);
     return response.data;
   }
 

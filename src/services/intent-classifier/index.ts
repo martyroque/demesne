@@ -50,7 +50,10 @@ class IntentClassifierService extends Store {
       // TODO: move model to a global config
       const response = await this.ollamaService.chat("llama3.2:3b", messages);
 
-      console.log("IntentClassifierService | classification", response);
+      console.log(
+        "IntentClassifierService | classification",
+        response.message.content
+      );
 
       const classification = response.message.content.trim().toUpperCase();
 

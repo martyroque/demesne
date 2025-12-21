@@ -1,8 +1,6 @@
-import { useStore } from "nucleux";
-import React, { useEffect, useState } from "react";
-import HomeAssistantService, {
-  type HAEntity,
-} from "../services/home-assistant";
+import { useStore, useValue } from "nucleux";
+import React, { useState } from "react";
+import HomeAssistantService from "../services/home-assistant";
 import IntentClassifierService from "../services/intent-classifier";
 import IntentParserService from "../services/intent-parser";
 import OllamaService, { type Message } from "../services/ollama";
@@ -12,23 +10,11 @@ export const Chat: React.FC = () => {
   const intentClassifierService = useStore(IntentClassifierService);
   const intentParserService = useStore(IntentParserService);
   const ollamaService = useStore(OllamaService);
-  const homeAssistantService = useStore(HomeAssistantService);
+  const entities = useValue(HomeAssistantService, "entities");
 
-  // TODO: move to a store
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [entities, setEntities] = useState<HAEntity[]>([]);
-
-  // Load HA entities on mount
-  // TODO: move to a store
-  useEffect(() => {
-    const loadEntities = async () => {
-      const states = await homeAssistantService.getStates();
-      setEntities(states);
-    };
-    loadEntities();
-  }, []);
 
   const processCommand = async (command: string) => {
     const userMessage: Message = { role: "user", content: command };
