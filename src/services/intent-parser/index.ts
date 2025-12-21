@@ -1,6 +1,6 @@
 import { Store } from "nucleux";
-import OllamaService, { type Message } from "../ollama";
 import HomeAssistantService from "../home-assistant";
+import OllamaService, { type Message } from "../ollama";
 
 const SYSTEM_PROMPT = `You are a home automation assistant. Parse user requests and return JSON with actions to perform.
 
@@ -23,7 +23,7 @@ Response format:
 Only return valid JSON, no additional text.`;
 
 export interface HAAction {
-  type: 'turnOn' | 'turnOff' | 'setBrightness' | 'setColor';
+  type: "turnOn" | "turnOff" | "setBrightness" | "setColor";
   entity: string;
   value?: number | string;
 }
@@ -34,16 +34,16 @@ export interface IntentResult {
 }
 
 const COLORS: Record<string, [number, number, number]> = {
-  'red': [255, 0, 0],
-  'green': [0, 255, 0],
-  'blue': [0, 0, 255],
-  'white': [255, 255, 255],
-  'warm white': [255, 149, 46],
-  'cool white': [200, 220, 255],
-  'yellow': [255, 255, 0],
-  'purple': [128, 0, 128],
-  'orange': [255, 165, 0],
-  'pink': [255, 192, 203],
+  red: [255, 0, 0],
+  green: [0, 255, 0],
+  blue: [0, 0, 255],
+  white: [255, 255, 255],
+  "warm white": [255, 149, 46],
+  "cool white": [200, 220, 255],
+  yellow: [255, 255, 0],
+  purple: [128, 0, 128],
+  orange: [255, 165, 0],
+  pink: [255, 192, 203],
 };
 
 class IntentParserService extends Store {
@@ -54,17 +54,22 @@ class IntentParserService extends Store {
     userMessage: string,
     availableEntities: string[]
   ): Promise<{ executed: boolean; response: string }> {
-
-    const contextMessage = `Available devices: ${availableEntities.join(', ')}`;
+    const contextMessage = `Available devices: ${availableEntities.join(", ")}`;
 
     const messages: Message[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'system', content: contextMessage },
-      { role: 'user', content: userMessage },
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: contextMessage },
+      { role: "user", content: userMessage },
     ];
 
     try {
-      const chatResponse = await this.ollamaService.chat('llama3.2:3b', messages);
+      console.log("IntentParserService | message", userMessage);
+
+      const chatResponse = await this.ollamaService.chat(
+        // TODO: move model to a global config
+        "llama3.2:3b",
+        messages
+      );
       const intent: IntentResult = JSON.parse(chatResponse.message.content);
 
       console.log("IntentParserService | intent", intent);
@@ -72,19 +77,20 @@ class IntentParserService extends Store {
       await Promise.all(
         intent.actions.map(async (action) => {
           switch (action.type) {
-            case 'turnOn':
+            case "turnOn":
               return this.homeAssistantService.turnOn(action.entity);
-            case 'turnOff':
+            case "turnOff":
               return this.homeAssistantService.turnOff(action.entity);
-            case 'setBrightness':
+            case "setBrightness":
               return this.homeAssistantService.setBrightness(
                 action.entity,
                 action.value as number
               );
-            case 'setColor':
+            case "setColor": {
               const colorName = (action.value as string).toLowerCase();
-              const rgb = COLORS[colorName] || COLORS['white'];
+              const rgb = COLORS[colorName] || COLORS["white"];
               return this.homeAssistantService.setColor(action.entity, rgb);
+            }
           }
         })
       );
@@ -93,12 +99,11 @@ class IntentParserService extends Store {
         executed: true,
         response: intent.response,
       };
-
     } catch (error) {
-      console.error('Intent parsing failed:', error);
+      console.error("Intent parsing failed:", error);
       return {
         executed: false,
-        response: 'Sorry, I had trouble understanding that request.',
+        response: "Sorry, I had trouble understanding that request.",
       };
     }
   }
