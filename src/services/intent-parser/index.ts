@@ -1,4 +1,5 @@
 import { Store } from "nucleux";
+import ModelStore from "../../stores/ModelStore";
 import HomeAssistantService from "../home-assistant";
 import OllamaService, { type Message } from "../ollama";
 
@@ -49,6 +50,7 @@ const COLORS: Record<string, [number, number, number]> = {
 class IntentParserService extends Store {
   private ollamaService = this.inject(OllamaService);
   private homeAssistantService = this.inject(HomeAssistantService);
+  private modelStore = this.inject(ModelStore);
 
   async parseAndExecute(
     userMessage: string,
@@ -65,11 +67,8 @@ class IntentParserService extends Store {
     try {
       console.log("IntentParserService | message", userMessage);
 
-      const chatResponse = await this.ollamaService.chat(
-        // TODO: move model to a global config
-        "llama3.2:3b",
-        messages
-      );
+      const activeModel = this.modelStore.activeModel.value;
+      const chatResponse = await this.ollamaService.chat(activeModel, messages);
       const intent: IntentResult = JSON.parse(chatResponse.message.content);
 
       console.log("IntentParserService | intent", intent);

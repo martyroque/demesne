@@ -4,6 +4,7 @@ import HomeAssistantService from "../services/home-assistant";
 import IntentClassifierService from "../services/intent-classifier";
 import IntentParserService from "../services/intent-parser";
 import OllamaService, { type Message } from "../services/ollama";
+import ModelStore from "../stores/ModelStore";
 import { VoiceInput } from "./VoiceInput";
 
 export const Chat: React.FC = () => {
@@ -11,6 +12,7 @@ export const Chat: React.FC = () => {
   const intentParserService = useStore(IntentParserService);
   const ollamaService = useStore(OllamaService);
   const entities = useValue(HomeAssistantService, "entities");
+  const activeModel = useValue(ModelStore, "activeModel");
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -37,8 +39,7 @@ export const Chat: React.FC = () => {
         };
         setMessages((prev) => [...prev, assistantMessage]);
       } else {
-        // TODO: move model to a global config
-        const response = await ollamaService.chat("llama3.2:3b", [
+        const response = await ollamaService.chat(activeModel, [
           ...messages,
           userMessage,
         ]);
@@ -70,8 +71,6 @@ export const Chat: React.FC = () => {
 
   return (
     <div className="chat-container" style={{ padding: "20px" }}>
-      <h2>Zion Node Control</h2>
-
       <div
         className="messages"
         style={{
@@ -90,7 +89,6 @@ export const Chat: React.FC = () => {
             style={{
               margin: "10px 0",
               padding: "10px",
-              // backgroundColor: msg.role === 'user' ? '#e3f2fd' : '#f5f5f5',
               borderRadius: "8px",
             }}
           >
@@ -111,7 +109,7 @@ export const Chat: React.FC = () => {
       <div style={{ textAlign: "center", marginBottom: "20px" }}>
         <VoiceInput onTranscript={handleVoiceTranscript} />
         <div style={{ marginTop: "10px", fontSize: "14px", color: "#666" }}>
-          Click microphone and speak your command
+          Click microphone and speak your message
         </div>
       </div>
 
@@ -121,7 +119,7 @@ export const Chat: React.FC = () => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyUp={(e) => e.key === "Enter" && handleSend()}
-          placeholder="Or type your command..."
+          placeholder="Or type your message..."
           style={{ flex: 1, padding: "10px", fontSize: "16px" }}
         />
         <button
