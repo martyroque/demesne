@@ -1,5 +1,7 @@
-import React, { useEffect } from 'react';
-import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import React, { useEffect } from "react";
+import SpeechRecognition, {
+  useSpeechRecognition,
+} from "react-speech-recognition";
 
 interface VoiceInputProps {
   onTranscript: (text: string) => void;
@@ -8,7 +10,7 @@ interface VoiceInputProps {
 
 export const VoiceInput: React.FC<VoiceInputProps> = ({
   onTranscript,
-  onListening
+  onListening,
 }) => {
   const {
     transcript,
@@ -34,7 +36,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
 
   if (!browserSupportsSpeechRecognition) {
     return (
-      <div style={{ color: 'red' }}>
+      <div style={{ color: "red" }}>
         Browser doesn't support speech recognition. Use Chrome or Edge.
       </div>
     );
@@ -42,7 +44,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
 
   if (!isMicrophoneAvailable) {
     return (
-      <div style={{ color: 'red' }}>
+      <div style={{ color: "red" }}>
         No microphone available for voice recognition.
       </div>
     );
@@ -59,28 +61,26 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
         onClick={startListening}
         disabled={listening}
         style={{
-          padding: '15px 30px',
-          fontSize: '16px',
-          backgroundColor: listening ? '#ff4444' : '#4CAF50',
-          color: 'white',
-          border: 'none',
-          borderRadius: '50%',
-          cursor: listening ? 'not-allowed' : 'pointer',
-          width: '80px',
-          height: '80px',
+          padding: "15px 30px",
+          fontSize: "16px",
+          backgroundColor: listening ? "#ff4444" : "#4CAF50",
+          color: "white",
+          border: "none",
+          borderRadius: "50%",
+          cursor: listening ? "not-allowed" : "pointer",
+          width: "80px",
+          height: "80px",
         }}
       >
-        {listening ? '🎤' : '🎙️'}
+        {listening ? "🎤" : "🎙️"}
       </button>
 
       {listening && (
-        <div style={{ marginTop: '10px', color: '#666' }}>
-          Listening...
-        </div>
+        <div style={{ marginTop: "10px", color: "#666" }}>Listening...</div>
       )}
 
       {transcript && (
-        <div style={{ marginTop: '10px', fontStyle: 'italic' }}>
+        <div style={{ marginTop: "10px", fontStyle: "italic" }}>
           "{transcript}"
         </div>
       )}
