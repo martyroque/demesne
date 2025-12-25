@@ -1,0 +1,67 @@
+@keyframes blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.message {
+  text-align: left;
+}
+
+.message code {
+  background-color: rgba(100, 108, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: "Courier New", monospace;
+  font-size: 0.9em;
+}
+
+.message pre {
+  background-color: rgba(100, 108, 255, 0.1);
+  padding: 10px;
+  border-radius: 5px;
+  overflow-x: auto;
+  margin: 10px 0;
+}
+
+.message pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+.message ul,
+.message ol {
+  margin: 10px 0;
+  padding-left: 25px;
+}
+
+.message li {
+  margin: 5px 0;
+}
+
+.message h1,
+.message h2,
+.message h3 {
+  margin: 15px 0 10px 0;
+}
+
+.message p {
+  margin: 8px 0;
+}
+
+.message blockquote {
+  border-left: 3px solid #646cff;
+  margin: 10px 0;
+  padding-left: 15px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.message a {
+  color: #646cff;
+  text-decoration: underline;
+}

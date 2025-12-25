@@ -1,10 +1,15 @@
 import { useStore, useValue } from "nucleux";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
 import HomeAssistantService from "../services/home-assistant";
 import IntentClassifierService from "../services/intent-classifier";
 import IntentParserService from "../services/intent-parser";
 import OllamaService, { type Message } from "../services/ollama";
 import ModelStore from "../stores/ModelStore";
+
+import "./Chat.css";
 import { VoiceInput } from "./VoiceInput";
 
 export const Chat: React.FC = () => {
@@ -17,6 +22,13 @@ export const Chat: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [streamingMessage, setStreamingMessage] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, streamingMessage]);
 
   const processCommand = async (command: string) => {
     const userMessage: Message = { role: "user", content: command };
@@ -38,13 +50,30 @@ export const Chat: React.FC = () => {
           content: result.response,
         };
         setMessages((prev) => [...prev, assistantMessage]);
+        setLoading(false);
       } else {
-        const response = await ollamaService.chat(activeModel, [
-          ...messages,
-          userMessage,
-        ]);
+        setIsStreaming(true);
+        setStreamingMessage("");
+        setLoading(false);
 
-        setMessages((prev) => [...prev, response.message]);
+        let fullResponse = "";
+
+        await ollamaService.chatStream(
+          activeModel,
+          [...messages, userMessage],
+          (chunk) => {
+            fullResponse += chunk;
+            setStreamingMessage(fullResponse);
+          }
+        );
+
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: fullResponse,
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+        setStreamingMessage("");
+        setIsStreaming(false);
       }
     } catch (error) {
       console.error("Chat error:", error);
@@ -53,8 +82,9 @@ export const Chat: React.FC = () => {
         content: "Sorry, something went wrong.",
       };
       setMessages((prev) => [...prev, errorMessage]);
-    } finally {
       setLoading(false);
+      setIsStreaming(false);
+      setStreamingMessage("");
     }
   };
 
@@ -90,12 +120,49 @@ export const Chat: React.FC = () => {
               margin: "10px 0",
               padding: "10px",
               borderRadius: "8px",
+              textAlign: "left",
             }}
           >
             <strong>{msg.role === "user" ? "You" : "Zion"}:</strong>{" "}
-            {msg.content}
+            <div style={{ marginTop: "5px" }}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {msg.content}
+              </ReactMarkdown>
+            </div>
           </div>
         ))}
+
+        {isStreaming && streamingMessage && (
+          <div
+            className="message assistant streaming"
+            style={{
+              margin: "10px 0",
+              padding: "10px",
+              borderRadius: "8px",
+              textAlign: "left",
+            }}
+          >
+            <strong>Zion:</strong>
+            <div style={{ marginTop: "5px", display: "inline" }}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {streamingMessage}
+              </ReactMarkdown>
+              <span
+                className="cursor"
+                style={{
+                  display: "inline-block",
+                  width: "2px",
+                  height: "1em",
+                  backgroundColor: "#646cff",
+                  marginLeft: "2px",
+                  animation: "blink 1s infinite",
+                  verticalAlign: "middle",
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         {loading && (
           <div
             className="message assistant"
@@ -104,6 +171,8 @@ export const Chat: React.FC = () => {
             Thinking...
           </div>
         )}
+
+        <div ref={messagesEndRef} />
       </div>
 
       <div style={{ textAlign: "center", marginBottom: "20px" }}>
@@ -124,7 +193,7 @@ export const Chat: React.FC = () => {
         />
         <button
           onClick={handleSend}
-          disabled={loading}
+          disabled={loading || isStreaming}
           style={{ padding: "10px 20px", fontSize: "16px" }}
         >
           Send
