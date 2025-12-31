@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  whisper:
+   container_name: whisper
+   image: rhasspy/wyoming-whisper:latest
+   restart: unless-stopped
+   ports:
+     - "10300:10300"
+   command: --model tiny-int8
+
+  wyoming-bridge:
+    build: ./wyoming-bridge
+    container_name: demesne-wyoming-bridge
+    ports:
+      - "10301:10301"
+    environment:
+      - WHISPER_HOST=whisper
+      - WHISPER_PORT=10300
+      - BRIDGE_HOST=0.0.0.0
+      - BRIDGE_PORT=10301
+      - CORS_ORIGINS=*
+    depends_on:
+      - whisper
+    restart: unless-stopped
