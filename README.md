@@ -23,6 +23,7 @@ This project is under active development. Core features are functional but the i
 ### Software
 
 - **Node.js** 18+ and npm
+- **Docker & Docker Compose** - [Install here](https://docs.docker.com/get-docker/)
 - **Ollama** (local LLM server) - [Install here](https://ollama.ai)
 - **Home Assistant** (running locally) - [Install guide](https://www.home-assistant.io/installation/)
 
@@ -46,11 +47,15 @@ npm install
 VITE_OLLAMA_URL=http://localhost:11434
 VITE_HA_URL=http://localhost:8123
 VITE_HA_TOKEN=your_home_assistant_token_here
+VITE_WHISPER_URL=http://localhost:10301
 ```
 
 Get your Home Assistant token: [Generate a Long-Lived Access Token](https://www.home-assistant.io/docs/authentication/#your-account-profile)
 
 ```bash
+# Start Whisper speech recognition service
+docker-compose up -d whisper wyoming-bridge
+
 # Start development server
 npm run dev
 ```
@@ -72,7 +77,7 @@ Demesne is designed as the foundation for something bigger - a self-sovereign no
 
 - **Frontend**: React + TypeScript + Vite
 - **State Management**: Nucleux
-- **Voice Recognition**: Web Speech API
+- **Voice Recognition**: Local Whisper (via Wyoming protocol) + Wyoming-to-HTTP bridge
 - **LLM**: Ollama (llama3.1:8b, llama3.2:3b)
 - **Smart Home**: Home Assistant REST API
 - **Protocol**: Zigbee (fully local, no internet required)
