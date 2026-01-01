@@ -5,7 +5,6 @@ import remarkGfm from "remark-gfm";
 
 import HomeAssistantService from "../services/home-assistant";
 import IntentClassifierService from "../services/intent-classifier";
-import IntentParserService from "../services/intent-parser";
 import OllamaService, { type Message } from "../services/ollama";
 import ModelStore from "../stores/ModelStore";
 
@@ -24,9 +23,8 @@ const safeMessageContent = (content: unknown): string => {
 
 export const Chat: React.FC = () => {
   const intentClassifierService = useStore(IntentClassifierService);
-  const intentParserService = useStore(IntentParserService);
   const ollamaService = useStore(OllamaService);
-  const entities = useValue(HomeAssistantService, "entities");
+  const homeAssistantService = useStore(HomeAssistantService);
   const activeModel = useValue(ModelStore, "activeModel");
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -49,15 +47,10 @@ export const Chat: React.FC = () => {
       const intentType = await intentClassifierService.classifyIntent(command);
 
       if (intentType === "HOME_CONTROL") {
-        const entityIds = entities.map((e) => e.entity_id);
-        const result = await intentParserService.parseAndExecute(
-          command,
-          entityIds
-        );
-
+        const result = await homeAssistantService.processConversation(command);
         const assistantMessage: Message = {
           role: "assistant",
-          content: result.response,
+          content: result,
         };
         setMessages((prev) => [...prev, assistantMessage]);
         setLoading(false);

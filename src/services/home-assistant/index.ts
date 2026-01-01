@@ -12,8 +12,13 @@ export interface HAEntity {
   last_updated: string;
 }
 
+const CONVERSATION_TIMEOUT = 5 * 60 * 1000;
+
 class HomeAssistantService extends Store {
   public entities = this.atom<HAEntity[]>([]);
+  private conversationId = this.atom<string | null>(null);
+  private lastInteractionTime = this.atom<number>(0);
+
   private haClient = axios.create({
     baseURL: `${HA_URL}/api`,
     headers: {
@@ -21,16 +26,6 @@ class HomeAssistantService extends Store {
       "Content-Type": "application/json",
     },
   });
-
-  constructor() {
-    super();
-    this.loadStates();
-  }
-
-  private async loadStates() {
-    const states = await this.getStates();
-    this.entities.value = states;
-  }
 
   private async callService(
     domain: string,
@@ -76,6 +71,70 @@ class HomeAssistantService extends Store {
       entity_id: entityId,
       rgb_color: rgb,
     });
+  }
+
+  async processConversation(
+    text: string,
+    language: string = "en"
+  ): Promise<string> {
+    try {
+      // Check if conversation expired due to inactivity
+      const now = Date.now();
+      if (
+        this.lastInteractionTime.value > 0 &&
+        now - this.lastInteractionTime.value > CONVERSATION_TIMEOUT
+      ) {
+        console.log("Conversation expired, starting fresh");
+        this.resetConversation();
+      }
+
+      const payload: {
+        text: string;
+        language: string;
+        conversation_id?: string;
+      } = {
+        text,
+        language,
+      };
+
+      if (this.conversationId.value) {
+        payload.conversation_id = this.conversationId.value;
+      }
+
+      const response = await this.haClient.post(
+        "/conversation/process",
+        payload
+      );
+
+      if (response.data.conversation_id) {
+        this.conversationId.value = response.data.conversation_id;
+      }
+
+      this.lastInteractionTime.value = now;
+
+      const result = response.data.response;
+
+      if (result.response_type === "error") {
+        return result.speech.plain.speech || "Sorry, something went wrong.";
+      }
+
+      if (result.data?.failed && result.data.failed.length > 0) {
+        const failedNames = result.data.failed
+          .map((f: { name: string }) => f.name)
+          .join(", ");
+        return `${result.speech.plain.speech} However, I couldn't control: ${failedNames}`;
+      }
+
+      return result.speech.plain.speech;
+    } catch (error) {
+      console.error("HA Conversation API error:", error);
+      return "Sorry, I couldn't process that command.";
+    }
+  }
+
+  resetConversation() {
+    this.conversationId.value = null;
+    this.lastInteractionTime.value = 0;
   }
 }
 
