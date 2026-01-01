@@ -12,6 +12,16 @@ import ModelStore from "../stores/ModelStore";
 import "./Chat.css";
 import { VoiceInput } from "./VoiceInput";
 
+const safeMessageContent = (content: unknown): string => {
+  if (typeof content === "string") {
+    return content;
+  }
+  if (content === null || content === undefined) {
+    return "";
+  }
+  return String(content);
+};
+
 export const Chat: React.FC = () => {
   const intentClassifierService = useStore(IntentClassifierService);
   const intentParserService = useStore(IntentParserService);
@@ -126,7 +136,7 @@ export const Chat: React.FC = () => {
             <strong>{msg.role === "user" ? "You" : "Zion"}:</strong>{" "}
             <div style={{ marginTop: "5px" }}>
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {msg.content}
+                {safeMessageContent(msg.content)}
               </ReactMarkdown>
             </div>
           </div>
@@ -145,7 +155,7 @@ export const Chat: React.FC = () => {
             <strong>Zion:</strong>
             <div style={{ marginTop: "5px", display: "inline" }}>
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {streamingMessage}
+                {safeMessageContent(streamingMessage)}
               </ReactMarkdown>
               <span
                 className="cursor"

@@ -28,6 +28,9 @@ class OllamaService extends Store {
       model,
       messages,
       stream,
+      options: {
+        num_ctx: 8192,
+      },
     });
     return response.data;
   }
@@ -46,6 +49,9 @@ class OllamaService extends Store {
         model,
         messages,
         stream: true,
+        options: {
+          num_ctx: 8192,
+        },
       }),
     });
 
