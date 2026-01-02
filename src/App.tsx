@@ -1,31 +1,42 @@
 import "./App.css";
 import { Chat } from "./components/Chat";
+import { ChatSidebar } from "./components/ChatSidebar";
 import { Settings } from "./components/Settings";
 
 function App() {
   return (
     <div
       style={{
-        maxWidth: "800px",
-        margin: "0 auto",
-        padding: "20px",
+        display: "flex",
+        height: "100vh",
         fontFamily: "system-ui, -apple-system, sans-serif",
-        position: "relative",
       }}
     >
+      <ChatSidebar />
+
       <div
         style={{
+          flex: 1,
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "30px",
-          gap: 10,
+          flexDirection: "column",
+          overflow: "hidden",
         }}
       >
-        <h1 style={{ margin: 0 }}>🏛️ Zion Network Node</h1>
-        <Settings />
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "20px",
+            borderBottom: "1px solid #333",
+          }}
+        >
+          <h1 style={{ margin: 0 }}>🏛️ Zion Network Node</h1>
+          <Settings />
+        </div>
+
+        <Chat />
       </div>
-      <Chat />
     </div>
   );
 }

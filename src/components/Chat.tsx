@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import HomeAssistantService from "../services/home-assistant";
 import IntentClassifierService from "../services/intent-classifier";
 import OllamaService, { type Message } from "../services/ollama";
+import ChatHistoryStore from "../stores/ChatHistoryStore";
 import ModelStore from "../stores/ModelStore";
 
 import "./Chat.css";
@@ -25,9 +26,10 @@ export const Chat: React.FC = () => {
   const intentClassifierService = useStore(IntentClassifierService);
   const ollamaService = useStore(OllamaService);
   const homeAssistantService = useStore(HomeAssistantService);
+  const chatHistoryStore = useStore(ChatHistoryStore);
   const activeModel = useValue(ModelStore, "activeModel");
+  const messages = useValue(chatHistoryStore.messages);
 
-  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState("");
@@ -40,7 +42,9 @@ export const Chat: React.FC = () => {
 
   const processCommand = async (command: string) => {
     const userMessage: Message = { role: "user", content: command };
-    setMessages((prev) => [...prev, userMessage]);
+
+    chatHistoryStore.addMessage(userMessage);
+
     setLoading(true);
 
     try {
@@ -52,7 +56,8 @@ export const Chat: React.FC = () => {
           role: "assistant",
           content: result,
         };
-        setMessages((prev) => [...prev, assistantMessage]);
+
+        chatHistoryStore.addMessage(assistantMessage);
         setLoading(false);
       } else {
         setIsStreaming(true);
@@ -74,7 +79,8 @@ export const Chat: React.FC = () => {
           role: "assistant",
           content: fullResponse,
         };
-        setMessages((prev) => [...prev, assistantMessage]);
+
+        chatHistoryStore.addMessage(assistantMessage);
         setStreamingMessage("");
         setIsStreaming(false);
       }
@@ -84,7 +90,8 @@ export const Chat: React.FC = () => {
         role: "assistant",
         content: "Sorry, something went wrong.",
       };
-      setMessages((prev) => [...prev, errorMessage]);
+
+      chatHistoryStore.addMessage(errorMessage);
       setLoading(false);
       setIsStreaming(false);
       setStreamingMessage("");
