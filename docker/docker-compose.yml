@@ -1,13 +1,13 @@
-version: '3.8'
+version: "3.8"
 
 services:
   whisper:
-   container_name: whisper
-   image: rhasspy/wyoming-whisper:latest
-   restart: unless-stopped
-   ports:
-     - "10300:10300"
-   command: --model tiny-int8
+    container_name: whisper
+    image: rhasspy/wyoming-whisper:latest
+    restart: unless-stopped
+    ports:
+      - "10300:10300"
+    command: --model tiny-int8
 
   wyoming-bridge:
     build: ./wyoming-bridge
@@ -22,4 +22,27 @@ services:
       - CORS_ORIGINS=*
     depends_on:
       - whisper
+    restart: unless-stopped
+
+  piper:
+    container_name: piper
+    image: rhasspy/wyoming-piper:latest
+    restart: unless-stopped
+    ports:
+      - "10200:10200"
+    command: --voice en_US-lessac-medium --voice en_US-amy-medium
+
+  piper-bridge:
+    build: ./piper-bridge
+    container_name: demesne-piper-bridge
+    ports:
+      - "10201:10201"
+    environment:
+      - PIPER_HOST=piper
+      - PIPER_PORT=10200
+      - BRIDGE_HOST=0.0.0.0
+      - BRIDGE_PORT=10201
+      - CORS_ORIGINS=*
+    depends_on:
+      - piper
     restart: unless-stopped

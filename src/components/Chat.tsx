@@ -6,8 +6,10 @@ import remarkGfm from "remark-gfm";
 import HomeAssistantService from "../services/home-assistant";
 import IntentClassifierService from "../services/intent-classifier";
 import OllamaService, { type Message } from "../services/ollama";
+import PiperService from "../services/piper";
 import ChatHistoryStore from "../stores/ChatHistoryStore";
 import ModelStore from "../stores/ModelStore";
+import SettingsStore from "../stores/SettingsStore";
 
 import "./Chat.css";
 import { VoiceInput } from "./VoiceInput";
@@ -26,19 +28,32 @@ export const Chat: React.FC = () => {
   const intentClassifierService = useStore(IntentClassifierService);
   const ollamaService = useStore(OllamaService);
   const homeAssistantService = useStore(HomeAssistantService);
+  const piperService = useStore(PiperService);
+
   const chatHistoryStore = useStore(ChatHistoryStore);
+  const settingsStore = useStore(SettingsStore);
+
   const activeModel = useValue(ModelStore, "activeModel");
   const messages = useValue(chatHistoryStore.messages);
+  const ttsVoice = useValue(settingsStore.ttsVoice);
+  const autoPlayTTS = useValue(settingsStore.autoPlayTTS);
+  const isSpeaking = useValue(piperService.isSpeaking);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingMessage]);
+
+  const speakResponse = async (text: string) => {
+    if (!autoPlayTTS) return;
+    await piperService.speak({ text, voice: ttsVoice });
+  };
 
   const processCommand = async (command: string) => {
     const userMessage: Message = { role: "user", content: command };
@@ -59,6 +74,7 @@ export const Chat: React.FC = () => {
 
         chatHistoryStore.addMessage(assistantMessage);
         setLoading(false);
+        await speakResponse(result);
       } else {
         setIsStreaming(true);
         setStreamingMessage("");
@@ -83,6 +99,7 @@ export const Chat: React.FC = () => {
         chatHistoryStore.addMessage(assistantMessage);
         setStreamingMessage("");
         setIsStreaming(false);
+        await speakResponse(fullResponse);
       }
     } catch (error) {
       console.error("Chat error:", error);
@@ -109,6 +126,14 @@ export const Chat: React.FC = () => {
     await processCommand(transcript);
   };
 
+  const handleManualSpeak = async (text: string) => {
+    if (isSpeaking) {
+      piperService.stop();
+    } else {
+      await piperService.speak({ text, voice: ttsVoice });
+    }
+  };
+
   return (
     <div className="chat-container" style={{ padding: "20px" }}>
       <div
@@ -131,9 +156,35 @@ export const Chat: React.FC = () => {
               padding: "10px",
               borderRadius: "8px",
               textAlign: "left",
+              position: "relative",
             }}
           >
-            <strong>{msg.role === "user" ? "You" : "Zion"}:</strong>{" "}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <strong>{msg.role === "user" ? "You" : "Zion"}:</strong>
+              {msg.role === "assistant" && (
+                <button
+                  onClick={() =>
+                    handleManualSpeak(safeMessageContent(msg.content))
+                  }
+                  style={{
+                    background: "none",
+                    border: "none",
+                    fontSize: "16px",
+                    cursor: "pointer",
+                    padding: "4px 8px",
+                  }}
+                  title={isSpeaking ? "Stop speaking" : "Speak this message"}
+                >
+                  {isSpeaking ? "🔇" : "🔊"}
+                </button>
+              )}
+            </div>
             <div style={{ marginTop: "5px" }}>
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {safeMessageContent(msg.content)}
@@ -179,6 +230,15 @@ export const Chat: React.FC = () => {
             style={{ fontStyle: "italic", color: "#666" }}
           >
             Thinking...
+          </div>
+        )}
+
+        {isSpeaking && (
+          <div
+            className="message assistant"
+            style={{ fontStyle: "italic", color: "#646cff" }}
+          >
+            🔊 Speaking...
           </div>
         )}
 
