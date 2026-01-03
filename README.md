@@ -13,6 +13,7 @@ This project is under active development. Core features are functional but the i
 ## What It Does
 
 - **Voice Control**: Speak commands naturally to control your smart home
+- **Voice Responses**: Zion speaks back using local text-to-speech
 - **Local AI**: Uses Ollama for on-device language processing (no data leaves your network)
 - **Home Assistant Integration**: Works with existing Home Assistant installations
 - **Privacy-First**: 100% local operation - your voice and commands stay on your hardware
@@ -32,6 +33,7 @@ This project is under active development. Core features are functional but the i
 - **PC/Mac** with 8GB+ RAM for running Ollama models
 - **Zigbee Coordinator** (optional, for local smart devices)
 - **Microphone** for voice input
+- **Speakers** for voice output
 
 ## Quick Start
 
@@ -48,15 +50,18 @@ VITE_OLLAMA_URL=http://localhost:11434
 VITE_HA_URL=http://localhost:8123
 VITE_HA_TOKEN=your_home_assistant_token_here
 VITE_WHISPER_URL=http://localhost:10301
+VITE_PIPER_URL=http://localhost:10201
 ```
 
 Get your Home Assistant token: [Generate a Long-Lived Access Token](https://www.home-assistant.io/docs/authentication/#your-account-profile)
 
 ```bash
-# Start Whisper speech recognition service
-docker-compose up -d whisper wyoming-bridge
+# Start voice services (Whisper STT + Piper TTS)
+cd docker
+docker-compose up -d --build
 
 # Start development server
+cd ..
 npm run dev
 ```
 
@@ -78,6 +83,7 @@ Demesne is designed as the foundation for something bigger - a self-sovereign no
 - **Frontend**: React + TypeScript + Vite
 - **State Management**: Nucleux
 - **Voice Recognition**: Local Whisper (via Wyoming protocol) + Wyoming-to-HTTP bridge
+- **Text-to-Speech**: Local Piper TTS (via Wyoming protocol) + Wyoming-to-HTTP bridge
 - **LLM**: Ollama (llama3.1:8b, llama3.2:3b)
 - **Smart Home**: Home Assistant REST API
 - **Protocol**: Zigbee (fully local, no internet required)
