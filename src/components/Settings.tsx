@@ -132,22 +132,6 @@ export const Settings: React.FC = () => {
               borderTop: "1px solid rgba(255, 255, 255, 0.1)",
             }}
           >
-            <div
-              style={{ fontSize: "12px", color: "rgba(255, 255, 255, 0.6)" }}
-            >
-              Smaller models (3B) are faster but less accurate.
-              <br />
-              Larger models (7-8B) provide better results.
-            </div>
-          </div>
-
-          <div
-            style={{
-              marginTop: "16px",
-              paddingTop: "16px",
-              borderTop: "1px solid rgba(255, 255, 255, 0.1)",
-            }}
-          >
             <label
               style={{
                 display: "block",
@@ -169,11 +153,13 @@ export const Settings: React.FC = () => {
                   color: "rgba(255, 255, 255, 0.7)",
                 }}
               >
-                Voice
+                Voice (WIP)
               </label>
               <select
                 value={ttsVoice}
-                onChange={(e) => settingsStore.setTTSVoice(e.target.value)}
+                // WIP
+                // onChange={(e) => settingsStore.setTTSVoice(e.target.value)}
+                disabled
                 style={{
                   width: "100%",
                   padding: "8px",
