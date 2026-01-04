@@ -3,15 +3,18 @@ import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import HomeAssistantService from "../services/home-assistant";
-import IntentClassifierService from "../services/intent-classifier";
-import OllamaService, { type Message } from "../services/ollama";
-import PiperService from "../services/piper";
-import ChatHistoryStore from "../stores/ChatHistoryStore";
-import ModelStore from "../stores/ModelStore";
-import SettingsStore from "../stores/SettingsStore";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import HomeAssistantService from "@/services/home-assistant";
+import IntentClassifierService from "@/services/intent-classifier";
+import OllamaService, { type Message } from "@/services/ollama";
+import PiperService from "@/services/piper";
+import ChatHistoryStore from "@/stores/ChatHistoryStore";
+import ModelStore from "@/stores/ModelStore";
+import SettingsStore from "@/stores/SettingsStore";
 
-import "./Chat.css";
 import { VoiceInput } from "./VoiceInput";
 
 const safeMessageContent = (content: unknown): string => {
@@ -135,139 +138,100 @@ export const Chat: React.FC = () => {
   };
 
   return (
-    <div className="chat-container" style={{ padding: "20px" }}>
-      <div
-        className="messages"
-        style={{
-          minHeight: "400px",
-          maxHeight: "400px",
-          overflowY: "auto",
-          border: "1px solid #ccc",
-          padding: "10px",
-          marginBottom: "20px",
-        }}
-      >
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`message ${msg.role}`}
-            style={{
-              margin: "10px 0",
-              padding: "10px",
-              borderRadius: "8px",
-              textAlign: "left",
-              position: "relative",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <strong>{msg.role === "user" ? "You" : "Zion"}:</strong>
-              {msg.role === "assistant" && (
-                <button
-                  onClick={() =>
-                    handleManualSpeak(safeMessageContent(msg.content))
-                  }
-                  style={{
-                    background: "none",
-                    border: "none",
-                    fontSize: "16px",
-                    cursor: "pointer",
-                    padding: "4px 8px",
-                  }}
-                  title={isSpeaking ? "Stop speaking" : "Speak this message"}
-                >
-                  {isSpeaking ? "🔇" : "🔊"}
-                </button>
-              )}
-            </div>
-            <div style={{ marginTop: "5px" }}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {safeMessageContent(msg.content)}
-              </ReactMarkdown>
-            </div>
+    <div className="flex flex-1 flex-col gap-5 overflow-hidden p-5">
+      <div className="flex-1 overflow-hidden rounded-lg border bg-card">
+        <div className="flex h-full flex-col">
+          <div className="flex-1 space-y-4 overflow-y-auto p-4">
+            {messages.map((msg, idx) => (
+              <div
+                key={idx}
+                className={cn(
+                  "rounded-lg p-4",
+                  msg.role === "user" ? "bg-primary/10" : "bg-muted"
+                )}
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-semibold">
+                    {msg.role === "user" ? "You" : "Zion"}
+                  </span>
+                  {msg.role === "assistant" && (
+                    <Button
+                      onClick={() =>
+                        handleManualSpeak(safeMessageContent(msg.content))
+                      }
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      title={
+                        isSpeaking ? "Stop speaking" : "Speak this message"
+                      }
+                    >
+                      {isSpeaking ? "🔇" : "🔊"}
+                    </Button>
+                  )}
+                </div>
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {safeMessageContent(msg.content)}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            ))}
+
+            {isStreaming && streamingMessage && (
+              <div className="rounded-lg bg-muted p-4">
+                <div className="mb-2 font-semibold">Zion</div>
+                <div className="prose prose-sm dark:prose-invert inline max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {safeMessageContent(streamingMessage)}
+                  </ReactMarkdown>
+                  <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-primary" />
+                </div>
+              </div>
+            )}
+
+            {loading && (
+              <div className="rounded-lg bg-muted p-4 italic text-muted-foreground">
+                Thinking...
+              </div>
+            )}
+
+            {isSpeaking && (
+              <div className="rounded-lg bg-primary/10 p-4 italic text-primary">
+                🔊 Speaking...
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
           </div>
-        ))}
-
-        {isStreaming && streamingMessage && (
-          <div
-            className="message assistant streaming"
-            style={{
-              margin: "10px 0",
-              padding: "10px",
-              borderRadius: "8px",
-              textAlign: "left",
-            }}
-          >
-            <strong>Zion:</strong>
-            <div style={{ marginTop: "5px", display: "inline" }}>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {safeMessageContent(streamingMessage)}
-              </ReactMarkdown>
-              <span
-                className="cursor"
-                style={{
-                  display: "inline-block",
-                  width: "2px",
-                  height: "1em",
-                  backgroundColor: "#646cff",
-                  marginLeft: "2px",
-                  animation: "blink 1s infinite",
-                  verticalAlign: "middle",
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {loading && (
-          <div
-            className="message assistant"
-            style={{ fontStyle: "italic", color: "#666" }}
-          >
-            Thinking...
-          </div>
-        )}
-
-        {isSpeaking && (
-          <div
-            className="message assistant"
-            style={{ fontStyle: "italic", color: "#646cff" }}
-          >
-            🔊 Speaking...
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      <div style={{ textAlign: "center", marginBottom: "20px" }}>
-        <VoiceInput onTranscript={handleVoiceTranscript} />
-        <div style={{ marginTop: "10px", fontSize: "14px", color: "#666" }}>
-          Click microphone and speak your message
         </div>
       </div>
 
-      <div className="input-area" style={{ display: "flex", gap: "10px" }}>
-        <input
+      <div>
+        <VoiceInput onTranscript={handleVoiceTranscript} />
+        <p className="mt-2 text-center text-sm text-muted-foreground">
+          Click microphone and speak your message
+        </p>
+      </div>
+
+      <Separator />
+
+      <div className="flex gap-2">
+        <Input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyUp={(e) => e.key === "Enter" && handleSend()}
           placeholder="Or type your message..."
-          style={{ flex: 1, padding: "10px", fontSize: "16px" }}
-        />
-        <button
-          onClick={handleSend}
+          className="flex-1"
           disabled={loading || isStreaming}
-          style={{ padding: "10px 20px", fontSize: "16px" }}
+        />
+        <Button
+          onClick={handleSend}
+          disabled={loading || isStreaming || !input.trim()}
         >
           Send
-        </button>
+        </Button>
       </div>
     </div>
   );
