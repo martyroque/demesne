@@ -7,11 +7,11 @@ services:
     restart: unless-stopped
     ports:
       - "10300:10300"
-    command: --model tiny-int8
+    command: --model tiny-int8 --language en
 
-  wyoming-bridge:
-    build: ./wyoming-bridge
-    container_name: demesne-wyoming-bridge
+  whisper-bridge:
+    build: ./whisper-bridge
+    container_name: demesne-whisper-bridge
     ports:
       - "10301:10301"
     environment:
@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
     ports:
       - "10200:10200"
-    command: --voice en_US-lessac-medium --voice en_US-amy-medium
+    command: --voice en_US-amy-medium
 
   piper-bridge:
     build: ./piper-bridge

@@ -11,6 +11,6 @@ COPY main.py .
 COPY config.py .
 
 # Expose HTTP port
-EXPOSE 10201
+EXPOSE 10301
 
 CMD ["python", "main.py"]

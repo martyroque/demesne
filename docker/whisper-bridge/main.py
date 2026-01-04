@@ -14,7 +14,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class WyomingBridge:
+class WhisperBridge:
     def __init__(self, config: Config):
         self.config = config
         self.whisper_host = config.whisper_host
@@ -191,7 +191,7 @@ async def handle_info(request):
 
     return web.json_response(
         {
-            "service": "wyoming-http-bridge",
+            "service": "whisper-http-bridge",
             "version": "1.0.0",
             "whisper": {
                 "host": bridge.whisper_host,
@@ -236,15 +236,15 @@ async def handle_health(request):
 async def on_startup(app):
     """Initialize bridge on startup"""
     config = Config()
-    app["bridge"] = WyomingBridge(config)
+    app["bridge"] = WhisperBridge(config)
     logger.info(
-        f"Wyoming bridge started, connecting to {config.whisper_host}:{config.whisper_port}"
+        f"Whisper bridge started, connecting to {config.whisper_host}:{config.whisper_port}"
     )
 
 
 async def on_cleanup(app):
     """Cleanup on shutdown"""
-    logger.info("Wyoming bridge shutting down")
+    logger.info("Whisper bridge shutting down")
 
 
 def create_app() -> web.Application:
@@ -266,7 +266,7 @@ if __name__ == "__main__":
     app = create_app()
 
     logger.info(
-        f"Starting Wyoming HTTP Bridge on {config.bridge_host}:{config.bridge_port}"
+        f"Starting Whisper HTTP Bridge on {config.bridge_host}:{config.bridge_port}"
     )
     web.run_app(
         app, host=config.bridge_host, port=config.bridge_port, access_log=logger
