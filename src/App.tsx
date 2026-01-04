@@ -1,39 +1,17 @@
-import "./App.css";
 import { Chat } from "./components/Chat";
 import { ChatSidebar } from "./components/ChatSidebar";
 import { Settings } from "./components/Settings";
 
 function App() {
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-      }}
-    >
+    <div className="flex h-screen font-sans">
       <ChatSidebar />
 
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "20px",
-            borderBottom: "1px solid #333",
-          }}
-        >
-          <h1 style={{ margin: 0 }}>🏛️ Zion Network Node</h1>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <header className="flex items-center justify-between border-b border-border p-5">
+          <h1 className="m-0 text-2xl font-semibold">🏛️ Zion Network Node</h1>
           <Settings />
-        </div>
+        </header>
 
         <Chat />
       </div>

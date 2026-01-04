@@ -1,5 +1,25 @@
 import { useStore, useValue } from "nucleux";
 import React, { useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import ModelStore from "../stores/ModelStore";
 import SettingsStore from "../stores/SettingsStore";
 
@@ -17,259 +37,125 @@ export const Settings: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="settings-container">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        style={{
-          padding: "8px 16px",
-          fontSize: "14px",
-          backgroundColor: "#1a1a1a",
-          color: "rgba(255, 255, 255, 0.87)",
-          border: "1px solid #646cff",
-          borderRadius: "8px",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          transition: "border-color 0.25s",
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#535bf2")}
-        onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#646cff")}
-      >
-        ⚙️ Settings
-      </button>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="default" className="gap-2">
+          ⚙️ Settings
+        </Button>
+      </DialogTrigger>
 
-      {isOpen && (
-        <div
-          style={{
-            position: "absolute",
-            top: "50px",
-            right: "20px",
-            backgroundColor: "#1a1a1a",
-            color: "rgba(255, 255, 255, 0.87)",
-            border: "1px solid #646cff",
-            borderRadius: "8px",
-            padding: "20px",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
-            minWidth: "320px",
-            maxHeight: "80vh",
-            overflowY: "auto",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              marginBottom: "16px",
-            }}
-          >
-            <h3 style={{ margin: 0, color: "rgba(255, 255, 255, 0.87)" }}>
-              Settings
-            </h3>
-            <button
-              onClick={() => setIsOpen(false)}
-              style={{
-                background: "none",
-                border: "none",
-                fontSize: "20px",
-                cursor: "pointer",
-                padding: "0 4px",
-                color: "rgba(255, 255, 255, 0.87)",
-              }}
-            >
-              ✕
-            </button>
-          </div>
+      <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Settings</DialogTitle>
+        </DialogHeader>
 
-          <div>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "8px",
-                fontWeight: "500",
-                fontSize: "14px",
-                color: "rgba(255, 255, 255, 0.87)",
-              }}
-            >
-              Active Model
-            </label>
-            <select
+        <div className="space-y-6 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="model-select">Active Model</Label>
+            <Select
               value={activeModel}
-              onChange={(e) => modelStore.setActiveModel(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "8px",
-                fontSize: "14px",
-                borderRadius: "4px",
-                border: "1px solid #646cff",
-                backgroundColor: "#242424",
-                color: "rgba(255, 255, 255, 0.87)",
-                cursor: "pointer",
-              }}
+              onValueChange={(value) => modelStore.setActiveModel(value)}
+              disabled={isLoading}
             >
-              {isLoading && <option disabled>Loading models...</option>}
-              {models.map((model) => (
-                <option key={model} value={model}>
-                  {model}
-                </option>
-              ))}
-            </select>
-            <div
-              style={{
-                marginTop: "8px",
-                fontSize: "12px",
-                color: "rgba(255, 255, 255, 0.6)",
-              }}
-            >
+              <SelectTrigger id="model-select">
+                <SelectValue placeholder="Select a model" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {isLoading && (
+                    <SelectItem value="loading" disabled>
+                      Loading models...
+                    </SelectItem>
+                  )}
+                  {models.map((model) => (
+                    <SelectItem key={model} value={model}>
+                      {model}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
               {models.length} model{models.length !== 1 ? "s" : ""} available
-            </div>
+            </p>
           </div>
 
-          <div
-            style={{
-              marginTop: "16px",
-              paddingTop: "16px",
-              borderTop: "1px solid rgba(255, 255, 255, 0.1)",
-            }}
-          >
-            <label
-              style={{
-                display: "block",
-                marginBottom: "12px",
-                fontWeight: "500",
-                fontSize: "14px",
-                color: "rgba(255, 255, 255, 0.87)",
-              }}
-            >
-              Voice Responses
-            </label>
+          <div className="space-y-4 border-t pt-4">
+            <Label className="text-base font-medium">Voice Responses</Label>
 
-            <div style={{ marginBottom: "12px" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "6px",
-                  fontSize: "13px",
-                  color: "rgba(255, 255, 255, 0.7)",
-                }}
-              >
+            <div className="space-y-2">
+              <Label htmlFor="voice-select" className="text-sm font-normal">
                 Voice (WIP)
-              </label>
-              <select
-                value={ttsVoice}
-                // WIP
-                // onChange={(e) => settingsStore.setTTSVoice(e.target.value)}
-                disabled
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  fontSize: "14px",
-                  borderRadius: "4px",
-                  border: "1px solid #646cff",
-                  backgroundColor: "#242424",
-                  color: "rgba(255, 255, 255, 0.87)",
-                  cursor: "pointer",
-                }}
-              >
-                <optgroup label="English (US)">
-                  <option value="en_US-lessac-medium">
-                    Lessac (Female, Clear)
-                  </option>
-                  <option value="en_US-amy-medium">
-                    Amy (Female, Neutral)
-                  </option>
-                  <option value="en_US-danny-low">Danny (Male, Low)</option>
-                </optgroup>
-              </select>
+              </Label>
+              <Select value={ttsVoice} disabled>
+                <SelectTrigger id="voice-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>English (US)</SelectLabel>
+                    <SelectItem value="en_US-lessac-medium">
+                      Lessac (Female, Clear)
+                    </SelectItem>
+                    <SelectItem value="en_US-amy-medium">
+                      Amy (Female, Neutral)
+                    </SelectItem>
+                    <SelectItem value="en_US-danny-low">
+                      Danny (Male, Low)
+                    </SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </div>
 
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                fontSize: "14px",
-                color: "rgba(255, 255, 255, 0.87)",
-                cursor: "pointer",
-              }}
-            >
-              <input
-                type="checkbox"
+            <div className="flex items-center justify-between space-x-2">
+              <Label
+                htmlFor="autoplay-tts"
+                className="flex flex-col space-y-1 font-normal"
+              >
+                <span className="text-sm">Auto-play responses</span>
+                <span className="text-xs text-muted-foreground">
+                  {autoPlayTTS
+                    ? "Zion will speak responses automatically"
+                    : "Click 🔊 to play responses manually"}
+                </span>
+              </Label>
+              <Switch
+                id="autoplay-tts"
                 checked={autoPlayTTS}
-                onChange={(e) => settingsStore.setAutoPlayTTS(e.target.checked)}
-                style={{ cursor: "pointer" }}
+                onCheckedChange={(checked) =>
+                  settingsStore.setAutoPlayTTS(checked)
+                }
               />
-              Auto-play responses
-            </label>
-
-            <div
-              style={{
-                marginTop: "8px",
-                fontSize: "12px",
-                color: "rgba(255, 255, 255, 0.6)",
-              }}
-            >
-              {autoPlayTTS
-                ? "Zion will speak responses automatically"
-                : "Click 🔊 to play responses manually"}
             </div>
           </div>
 
-          <div
-            style={{
-              marginTop: "16px",
-              paddingTop: "16px",
-              borderTop: "1px solid rgba(255, 255, 255, 0.1)",
-            }}
-          >
-            <label
-              style={{
-                display: "block",
-                marginBottom: "12px",
-                fontWeight: "500",
-                fontSize: "14px",
-                color: "rgba(255, 255, 255, 0.87)",
-              }}
-            >
-              Home Control
-            </label>
+          <div className="space-y-4 border-t pt-4">
+            <Label className="text-base font-medium">Home Control</Label>
 
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                fontSize: "14px",
-                color: "rgba(255, 255, 255, 0.87)",
-                cursor: "pointer",
-              }}
-            >
-              <input
-                type="checkbox"
+            <div className="flex items-center justify-between space-x-2">
+              <Label
+                htmlFor="home-control"
+                className="flex flex-col space-y-1 font-normal"
+              >
+                <span className="text-sm">Enable Home Control</span>
+                <span className="text-xs text-muted-foreground">
+                  {homeControlEnabled
+                    ? "Zion will control your home via command"
+                    : "Zion will only function as a chat"}
+                </span>
+              </Label>
+              <Switch
+                id="home-control"
                 checked={homeControlEnabled}
-                onChange={(e) =>
-                  settingsStore.setHomeControlEnabled(e.target.checked)
+                onCheckedChange={(checked) =>
+                  settingsStore.setHomeControlEnabled(checked)
                 }
-                style={{ cursor: "pointer" }}
               />
-              Enable Home Control
-            </label>
-
-            <div
-              style={{
-                marginTop: "8px",
-                fontSize: "12px",
-                color: "rgba(255, 255, 255, 0.6)",
-              }}
-            >
-              {homeControlEnabled
-                ? "Zion will control your home via command"
-                : "Zion will only function as a chat"}
             </div>
           </div>
         </div>
-      )}
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };

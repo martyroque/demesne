@@ -2,6 +2,9 @@ import { formatDistanceToNow } from "date-fns";
 import { useStore, useValue } from "nucleux";
 import React from "react";
 
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import HomeAssistantService from "../services/home-assistant";
 import ChatHistoryStore from "../stores/ChatHistoryStore";
 
@@ -29,124 +32,54 @@ export const ChatSidebar: React.FC = () => {
   };
 
   return (
-    <div
-      style={{
-        width: "280px",
-        backgroundColor: "#1a1a1a",
-        borderRight: "1px solid #333",
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          padding: "20px",
-          borderBottom: "1px solid #333",
-        }}
-      >
-        <button
+    <div className="flex h-screen w-[280px] flex-col overflow-hidden border-r border-border bg-sidebar">
+      <div className="border-b border-border p-5">
+        <Button
           onClick={handleNewChat}
-          style={{
-            width: "100%",
-            padding: "12px",
-            fontSize: "14px",
-            backgroundColor: "#646cff",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "500",
-          }}
+          className="w-full font-medium"
+          size="lg"
         >
-          + New Chat
-        </button>
+          <span className="mr-2">+</span>
+          New Chat
+        </Button>
       </div>
 
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "10px",
-        }}
-      >
-        {sortedSessions.map((session) => (
-          <div
-            key={session.id}
-            onClick={() => handleSessionClick(session.id)}
-            style={{
-              padding: "12px",
-              marginBottom: "8px",
-              borderRadius: "8px",
-              cursor: "pointer",
-              backgroundColor:
-                session.id === currentSessionId ? "#2a2a2a" : "transparent",
-              border:
-                session.id === currentSessionId
-                  ? "1px solid #646cff"
-                  : "1px solid transparent",
-              transition: "all 0.2s",
-            }}
-            onMouseEnter={(e) => {
-              if (session.id !== currentSessionId) {
-                e.currentTarget.style.backgroundColor = "#222";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (session.id !== currentSessionId) {
-                e.currentTarget.style.backgroundColor = "transparent";
-              }
-            }}
-          >
-            <div
-              style={{
-                fontSize: "14px",
-                color: "rgba(255, 255, 255, 0.87)",
-                marginBottom: "4px",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {sessionPreviews[session.id]}
-            </div>
-            <div
-              style={{
-                fontSize: "12px",
-                color: "rgba(255, 255, 255, 0.5)",
-                display: "flex",
-                justifyContent: "space-between",
-              }}
-            >
-              <span>{formatTimestamp(session.lastActiveAt)}</span>
-              <span>{session.messages.length} msgs</span>
-            </div>
-          </div>
-        ))}
-
-        {sortedSessions.length === 0 && (
-          <div
-            style={{
-              padding: "20px",
-              textAlign: "center",
-              color: "rgba(255, 255, 255, 0.5)",
-              fontSize: "14px",
-            }}
-          >
+      <ScrollArea className="flex-1 p-2.5">
+        {sortedSessions.length === 0 ? (
+          <div className="p-5 text-center text-sm text-muted-foreground">
             No chats yet
           </div>
+        ) : (
+          <div className="space-y-2">
+            {sortedSessions.map((session) => (
+              <button
+                key={session.id}
+                onClick={() => handleSessionClick(session.id)}
+                className={cn(
+                  "w-full rounded-lg border p-3 text-left transition-all",
+                  "hover:bg-accent",
+                  session.id === currentSessionId
+                    ? "border-primary bg-accent"
+                    : "border-transparent"
+                )}
+              >
+                <div className="mb-1 line-clamp-2 text-sm text-foreground">
+                  {sessionPreviews[session.id]}
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{formatTimestamp(session.lastActiveAt)}</span>
+                  <span className="shrink-0">
+                    {session.messages.length} msg
+                    {session.messages.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
         )}
-      </div>
+      </ScrollArea>
 
-      <div
-        style={{
-          padding: "16px",
-          borderTop: "1px solid #333",
-          fontSize: "12px",
-          color: "rgba(255, 255, 255, 0.5)",
-        }}
-      >
+      <div className="border-t border-border p-4 text-xs text-muted-foreground">
         {sortedSessions.length} chat{sortedSessions.length !== 1 ? "s" : ""}
       </div>
     </div>
