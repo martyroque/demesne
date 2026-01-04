@@ -13,8 +13,4 @@ COPY config.py .
 # Expose HTTP port
 EXPOSE 10201
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-  CMD curl -f http://localhost:10201/health || exit 1
-
 CMD ["python", "main.py"]

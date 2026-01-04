@@ -8,11 +8,6 @@ services:
     ports:
       - "10300:10300"
     command: --model tiny-int8 --language en
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "10300"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   whisper-bridge:
     build: ./whisper-bridge
@@ -35,12 +30,7 @@ services:
     restart: unless-stopped
     ports:
       - "10200:10200"
-    command: --voice en_US-lessac-medium --voice en_US-amy-medium
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "10200"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    command: --voice en_US-amy-medium
 
   piper-bridge:
     build: ./piper-bridge
