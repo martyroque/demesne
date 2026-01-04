@@ -5,8 +5,8 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import HomeAssistantService from "../services/home-assistant";
-import ChatHistoryStore from "../stores/ChatHistoryStore";
+import HomeAssistantService from "@/services/home-assistant";
+import ChatHistoryStore from "@/stores/ChatHistoryStore";
 
 export const ChatSidebar: React.FC = () => {
   const chatHistoryStore = useStore(ChatHistoryStore);

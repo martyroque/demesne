@@ -1,7 +1,10 @@
 import { useStore } from "nucleux";
 import React, { useEffect, useRef, useState } from "react";
 
-import WhisperService from "../services/whisper";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import WhisperService from "@/services/whisper";
 
 interface VoiceInputProps {
   onTranscript: (text: string) => void;
@@ -42,6 +45,8 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
         clearInterval(timerRef.current);
       }
     };
+    // Stop recording and clear timer on unmount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -164,61 +169,39 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
   };
 
   return (
-    <div className="voice-input" style={{ textAlign: "center" }}>
-      <button
+    <div className="flex flex-col items-center gap-4 text-center">
+      <Button
         onClick={handleMicClick}
         disabled={isProcessing}
-        style={{
-          padding: "15px 30px",
-          fontSize: "16px",
-          backgroundColor: isRecording
-            ? "#ff4444"
-            : isProcessing
-              ? "#999"
-              : "#4CAF50",
-          color: "white",
-          border: "none",
-          borderRadius: "50%",
-          cursor: isProcessing || isRecording ? "not-allowed" : "pointer",
-          width: "80px",
-          height: "80px",
-          transition: "all 0.3s ease",
-          boxShadow: isRecording
-            ? "0 0 20px rgba(255, 68, 68, 0.6)"
-            : "0 4px 8px rgba(0,0,0,0.2)",
-        }}
+        size="icon"
+        className={cn(
+          "h-20 w-20 rounded-full text-3xl transition-all duration-300",
+          isRecording &&
+            "bg-red-500 shadow-lg shadow-red-500/60 hover:bg-red-600",
+          isProcessing && "cursor-not-allowed bg-muted",
+          !isRecording &&
+            !isProcessing &&
+            "bg-green-500 shadow-lg shadow-black/20 hover:bg-green-600"
+        )}
       >
         {isProcessing ? "⏳" : isRecording ? "🎤" : "🎙️"}
-      </button>
+      </Button>
 
       {isRecording && (
-        <div
-          style={{ marginTop: "10px", color: "#ff4444", fontWeight: "bold" }}
-        >
-          Recording... {recordingTime.toFixed(1)}s
-          <div style={{ fontSize: "12px", marginTop: "5px", color: "#666" }}>
-            Click to stop
-          </div>
+        <div className="flex flex-col gap-1">
+          <Badge variant="destructive" className="animate-pulse">
+            Recording... {recordingTime.toFixed(1)}s
+          </Badge>
+          <p className="text-xs text-muted-foreground">Click to stop</p>
         </div>
       )}
 
       {isProcessing && (
-        <div style={{ marginTop: "10px", color: "#666" }}>
-          Transcribing with Whisper...
-        </div>
+        <Badge variant="secondary">Transcribing with Whisper...</Badge>
       )}
 
       {error && (
-        <div
-          style={{
-            marginTop: "10px",
-            color: "#ff4444",
-            fontSize: "14px",
-            padding: "8px",
-            backgroundColor: "rgba(255, 68, 68, 0.1)",
-            borderRadius: "4px",
-          }}
-        >
+        <div className="rounded bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
         </div>
       )}

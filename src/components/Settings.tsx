@@ -20,8 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import ModelStore from "../stores/ModelStore";
-import SettingsStore from "../stores/SettingsStore";
+import ModelStore from "@/stores/ModelStore";
+import SettingsStore from "@/stores/SettingsStore";
 
 export const Settings: React.FC = () => {
   const modelStore = useStore(ModelStore);
