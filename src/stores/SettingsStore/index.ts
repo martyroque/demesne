@@ -7,9 +7,16 @@ class SettingsStore extends Store {
   public autoPlayTTS = this.atom<boolean>(true, {
     persistence: { persistKey: "autoPlayTTS" },
   });
+  public homeControlEnabled = this.atom<boolean>(true, {
+    persistence: { persistKey: "homeControlEnabled" },
+  });
 
   setAutoPlayTTS(autoPlayTTS: boolean) {
     this.autoPlayTTS.value = autoPlayTTS;
+  }
+
+  setHomeControlEnabled(homeControlEnabled: boolean) {
+    this.homeControlEnabled.value = homeControlEnabled;
   }
 }
 

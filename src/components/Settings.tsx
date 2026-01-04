@@ -12,6 +12,7 @@ export const Settings: React.FC = () => {
   const isLoading = useValue(modelStore.isLoading);
   const ttsVoice = useValue(settingsStore.ttsVoice);
   const autoPlayTTS = useValue(settingsStore.autoPlayTTS);
+  const homeControlEnabled = useValue(settingsStore.homeControlEnabled);
 
   const [isOpen, setIsOpen] = useState(false);
 
@@ -212,6 +213,59 @@ export const Settings: React.FC = () => {
               {autoPlayTTS
                 ? "Zion will speak responses automatically"
                 : "Click 🔊 to play responses manually"}
+            </div>
+          </div>
+
+          <div
+            style={{
+              marginTop: "16px",
+              paddingTop: "16px",
+              borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+            }}
+          >
+            <label
+              style={{
+                display: "block",
+                marginBottom: "12px",
+                fontWeight: "500",
+                fontSize: "14px",
+                color: "rgba(255, 255, 255, 0.87)",
+              }}
+            >
+              Home Control
+            </label>
+
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "14px",
+                color: "rgba(255, 255, 255, 0.87)",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={homeControlEnabled}
+                onChange={(e) =>
+                  settingsStore.setHomeControlEnabled(e.target.checked)
+                }
+                style={{ cursor: "pointer" }}
+              />
+              Enable Home Control
+            </label>
+
+            <div
+              style={{
+                marginTop: "8px",
+                fontSize: "12px",
+                color: "rgba(255, 255, 255, 0.6)",
+              }}
+            >
+              {homeControlEnabled
+                ? "Zion will control your home via command"
+                : "Zion will only function as a chat"}
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { Store } from "nucleux";
 import ModelStore from "../../stores/ModelStore";
+import SettingsStore from "../../stores/SettingsStore";
 import OllamaService, { type Message } from "../ollama";
 
 const CLASSIFICATION_PROMPT = `You are a smart home intent classifier. Determine if the user's message is requesting IMMEDIATE home automation control or general conversation.
@@ -85,8 +86,13 @@ export type IntentType = "HOME_CONTROL" | "GENERAL_CHAT";
 class IntentClassifierService extends Store {
   private ollamaService = this.inject(OllamaService);
   private modelStore = this.inject(ModelStore);
+  private settingsStore = this.inject(SettingsStore);
 
   async classifyIntent(userMessage: string): Promise<IntentType> {
+    if (!this.settingsStore.homeControlEnabled.value) {
+      return "GENERAL_CHAT";
+    }
+
     const messages: Message[] = [
       { role: "system", content: CLASSIFICATION_PROMPT },
       { role: "user", content: userMessage },
