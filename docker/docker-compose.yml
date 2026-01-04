@@ -7,11 +7,16 @@ services:
     restart: unless-stopped
     ports:
       - "10300:10300"
-    command: --model tiny-int8
+    command: --model tiny-int8 --language en
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "10300"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  wyoming-bridge:
-    build: ./wyoming-bridge
-    container_name: demesne-wyoming-bridge
+  whisper-bridge:
+    build: ./whisper-bridge
+    container_name: demesne-whisper-bridge
     ports:
       - "10301:10301"
     environment:
@@ -31,6 +36,11 @@ services:
     ports:
       - "10200:10200"
     command: --voice en_US-lessac-medium --voice en_US-amy-medium
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "10200"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   piper-bridge:
     build: ./piper-bridge
