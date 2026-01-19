@@ -53,10 +53,7 @@ services:
     restart: unless-stopped
     ports:
       - "10400:10400"
-    volumes:
-      - openwakeword-data:/data
-      - openwakeword-custom:/custom
-    command: --preload-model 'hey_jarvis'
+    command: --preload-model 'ok_nabu'
 
   wakeword-bridge:
     build: ./wakeword-bridge
@@ -72,7 +69,3 @@ services:
     depends_on:
       - openwakeword
     restart: unless-stopped
-
-volumes:
-  openwakeword-data:
-  openwakeword-custom:
