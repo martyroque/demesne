@@ -26,46 +26,44 @@ class WakeWordBridge:
             async with AsyncTcpClient(self.wakeword_host, self.wakeword_port) as client:
                 await client.write_event(Describe().event())
 
-                # Small delay for protocol handshake
-                await asyncio.sleep(0.01)
+                result = None
+                try:
+                    while True:
+                        event = await asyncio.wait_for(client.read_event(), timeout=2.0)
 
-                while True:
-                    event = await asyncio.wait_for(
-                        client.read_event(), timeout=self.config.timeout
-                    )
-                    if event is None:
-                        break
-                    if Info.is_type(event.type):
-                        info = Info.from_event(event)
-                        result = {}
+                        if event is None:
+                            break
 
-                        if hasattr(info, "name"):
-                            result["name"] = info.name
-                        if hasattr(info, "version"):
-                            result["version"] = info.version
-                        if hasattr(info, "attribution"):
-                            result["attribution"] = info.attribution
+                        if Info.is_type(event.type):
+                            info = Info.from_event(event)
+                            result = {}
 
-                        # Wake word info if available
-                        if hasattr(info, "wake") and info.wake:
-                            result["wake"] = []
-                            for model in info.wake:
-                                model_info = {}
-                                if hasattr(model, "name"):
-                                    model_info["name"] = model.name
-                                if hasattr(model, "description"):
-                                    model_info["description"] = model.description
-                                if hasattr(model, "installed"):
-                                    model_info["installed"] = model.installed
-                                if hasattr(model, "languages"):
-                                    model_info["languages"] = model.languages
-                                result["wake"].append(model_info)
+                            if hasattr(info, "name"):
+                                result["name"] = info.name
+                            if hasattr(info, "version"):
+                                result["version"] = info.version
+                            if hasattr(info, "attribution"):
+                                result["attribution"] = info.attribution
 
-                        return result if result else {"status": "connected"}
+                            if hasattr(info, "wake") and info.wake:
+                                result["wake"] = []
+                                for model in info.wake:
+                                    model_info = {}
+                                    if hasattr(model, "name"):
+                                        model_info["name"] = model.name
+                                    if hasattr(model, "description"):
+                                        model_info["description"] = model.description
+                                    if hasattr(model, "installed"):
+                                        model_info["installed"] = model.installed
+                                    if hasattr(model, "languages"):
+                                        model_info["languages"] = model.languages
+                                    result["wake"].append(model_info)
 
-        except asyncio.TimeoutError:
-            logger.error("Timeout getting wake word info")
-            return None
+                except asyncio.TimeoutError:
+                    pass
+
+                return result if result else {"status": "connected"}
+
         except Exception as e:
             logger.error(f"Error getting wake word info: {e}", exc_info=True)
             return None
@@ -77,7 +75,6 @@ class WakeWordBridge:
         """
         try:
             async with AsyncTcpClient(self.wakeword_host, self.wakeword_port) as client:
-                # Send audio start event
                 await client.write_event(
                     AudioStart(
                         rate=self.config.sample_rate,
@@ -86,7 +83,6 @@ class WakeWordBridge:
                     ).event()
                 )
 
-                # OpenWakeWord processes 80ms frames (1280 samples * 2 bytes = 2560 bytes)
                 chunk_size = 1280 * 2  # 80ms worth of 16-bit samples
                 for i in range(0, len(audio_data), chunk_size):
                     chunk = audio_data[i : i + chunk_size]
@@ -103,8 +99,8 @@ class WakeWordBridge:
 
                 await client.write_event(Detect().event())
 
-                # Give the server time to process before reading
-                await asyncio.sleep(0.01)
+                if hasattr(client, "writer") and client.writer:
+                    await client.writer.drain()
 
                 detected = False
                 wakeword_name = None
@@ -124,10 +120,8 @@ class WakeWordBridge:
                                 logger.info(f"Wake word detected: {detection.name}")
                                 detected = True
                                 wakeword_name = detection.name
-                                # Continue reading events until done
 
                 except asyncio.TimeoutError:
-                    # This is normal - no more events
                     logger.debug("No more events from OpenWakeWord")
                     pass
 
@@ -235,10 +229,12 @@ async def handle_health(request):
     bridge = request.app["bridge"]
 
     try:
-        async with AsyncTcpClient(bridge.wakeword_host, bridge.wakeword_port) as client:
-            await asyncio.wait_for(client.write_event(Describe().event()), timeout=1.0)
-            healthy = True
-    except:
+        # Use get_wakeword_info instead of manual connection
+        # This properly handles the Wyoming protocol
+        info = await bridge.get_wakeword_info()
+        healthy = info is not None
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
         healthy = False
 
     status = 200 if healthy else 503
