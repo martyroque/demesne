@@ -34,6 +34,8 @@ class WakeWordBridge:
                         if event is None:
                             break
 
+                        logger.debug(f"Received event type: {event.type}")
+
                         if Info.is_type(event.type):
                             info = Info.from_event(event)
                             result = {}
@@ -107,7 +109,7 @@ class WakeWordBridge:
 
                 try:
                     while True:
-                        event = await asyncio.wait_for(client.read_event(), timeout=1.0)
+                        event = await asyncio.wait_for(client.read_event(), timeout=2.0)
 
                         if event is None:
                             break
@@ -116,6 +118,14 @@ class WakeWordBridge:
 
                         if Detection.is_type(event.type):
                             detection = Detection.from_event(event)
+                            logger.info(f"Detection event attributes: {dir(detection)}")
+
+                            for attr in ["score", "confidence", "probability"]:
+                                if hasattr(detection, attr):
+                                    logger.info(
+                                        f"Detection {attr}: {getattr(detection, attr)}"
+                                    )
+
                             if hasattr(detection, "name"):
                                 logger.info(f"Wake word detected: {detection.name}")
                                 detected = True
