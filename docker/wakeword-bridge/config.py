@@ -19,4 +19,4 @@ class Config:
     channels: int = int(os.getenv("CHANNELS", "1"))  # Mono
 
     # Timeout for Wyoming operations (seconds)
-    timeout: float = float(os.getenv("TIMEOUT", "5.0"))
+    timeout: float = float(os.getenv("TIMEOUT", "2.0"))

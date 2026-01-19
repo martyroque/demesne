@@ -26,6 +26,9 @@ class WakeWordBridge:
             async with AsyncTcpClient(self.wakeword_host, self.wakeword_port) as client:
                 await client.write_event(Describe().event())
 
+                # Small delay for protocol handshake
+                await asyncio.sleep(0.01)
+
                 while True:
                     event = await asyncio.wait_for(
                         client.read_event(), timeout=self.config.timeout
@@ -83,8 +86,8 @@ class WakeWordBridge:
                     ).event()
                 )
 
-                # Send audio in chunks
-                chunk_size = 8192
+                # OpenWakeWord processes 80ms frames (1280 samples * 2 bytes = 2560 bytes)
+                chunk_size = 1280 * 2  # 80ms worth of 16-bit samples
                 for i in range(0, len(audio_data), chunk_size):
                     chunk = audio_data[i : i + chunk_size]
                     await client.write_event(
@@ -96,28 +99,42 @@ class WakeWordBridge:
                         ).event()
                     )
 
-                # Send audio stop and detect request
                 await client.write_event(AudioStop().event())
+
                 await client.write_event(Detect().event())
 
-                # Read detection response
-                while True:
-                    event = await asyncio.wait_for(
-                        client.read_event(), timeout=self.config.timeout
-                    )
-                    if event is None:
-                        break
-                    if Detection.is_type(event.type):
-                        detection = Detection.from_event(event)
-                        if hasattr(detection, "name"):
-                            logger.info(f"Wake word detected: {detection.name}")
-                            return True, detection.name
-                        return True, "unknown"
+                # Give the server time to process before reading
+                await asyncio.sleep(0.01)
 
-                return False, None
+                detected = False
+                wakeword_name = None
+
+                try:
+                    while True:
+                        event = await asyncio.wait_for(client.read_event(), timeout=1.0)
+
+                        if event is None:
+                            break
+
+                        logger.debug(f"Received event type: {event.type}")
+
+                        if Detection.is_type(event.type):
+                            detection = Detection.from_event(event)
+                            if hasattr(detection, "name"):
+                                logger.info(f"Wake word detected: {detection.name}")
+                                detected = True
+                                wakeword_name = detection.name
+                                # Continue reading events until done
+
+                except asyncio.TimeoutError:
+                    # This is normal - no more events
+                    logger.debug("No more events from OpenWakeWord")
+                    pass
+
+                return detected, wakeword_name
 
         except asyncio.TimeoutError:
-            logger.debug("No wake word detected (timeout)")
+            logger.error("Timeout waiting for wake word detection")
             return False, None
         except Exception as e:
             logger.error(f"Wake word detection error: {e}", exc_info=True)
@@ -154,16 +171,28 @@ async def handle_detect(request):
         if not audio_data:
             return web.json_response({"error": "No audio data provided"}, status=400)
 
-        logger.debug(f"Received {len(audio_data)} bytes of audio for detection")
-
-        detected, wakeword = await bridge.detect_wakeword(audio_data)
-
-        return web.json_response(
-            {
-                "detected": detected,
-                "wakeword": wakeword if wakeword else None,
-            }
+        samples = len(audio_data) // 2
+        duration_ms = (samples / 16000) * 1000
+        logger.info(
+            f"Received {len(audio_data)} bytes ({samples} samples, {duration_ms:.0f}ms)"
         )
+
+        try:
+            detected, wakeword = await bridge.detect_wakeword(audio_data)
+
+            logger.info(f"Detection result: detected={detected}, wakeword={wakeword}")
+
+            return web.json_response(
+                {
+                    "detected": detected,
+                    "wakeword": wakeword if wakeword else None,
+                }
+            )
+        except Exception as e:
+            logger.error(f"Detection failed: {e}")
+            return web.json_response(
+                {"detected": False, "wakeword": None, "error": str(e)}, status=500
+            )
 
     except Exception as e:
         logger.error(f"Request handling error: {e}", exc_info=True)
