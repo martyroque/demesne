@@ -192,35 +192,42 @@ async def handle_detect(request):
     """
     POST /detect
     Content-Type: audio/pcm (16kHz, 16-bit, mono)
-    Body (optional JSON): {"names": ["okay_nabu", "alexa"]}
-    Returns: {"detected": bool, "wakeword": str | null}
+    Returns: {"detected": true/false, "wakeword": "..."}
     """
     bridge = request.app["bridge"]
 
     try:
-        names = None
-        if request.content_type == "application/json":
-            data = await request.json()
-            names = data.get("names", ["okay_nabu"])
-        else:
-            names = ["okay_nabu"]
-
         audio_data = await request.read()
 
         if not audio_data:
             return web.json_response({"error": "No audio data provided"}, status=400)
 
-        logger.info(f"Detecting wake words: {names}")
-        logger.info(f"Received {len(audio_data)} bytes...")
-
-        detected, wakeword_name = await bridge.detect_wakeword(audio_data, names)
-
-        return web.json_response(
-            {
-                "detected": detected,
-                "wakeword": wakeword_name,
-            }
+        samples = len(audio_data) // 2
+        duration_ms = (samples / 16000) * 1000
+        logger.info(
+            f"Received {len(audio_data)} bytes ({samples} samples, {duration_ms:.0f}ms)"
         )
+
+        try:
+            # TODO: support names
+            detected, wakeword = await bridge.detect_wakeword(
+                audio_data, ["hey_jarvis"]
+            )
+
+            logger.info(f"Detection result: detected={detected}, wakeword={wakeword}")
+
+            return web.json_response(
+                {
+                    "detected": detected,
+                    "wakeword": wakeword if wakeword else None,
+                }
+            )
+        except Exception as e:
+            logger.error(f"Detection failed: {e}")
+            return web.json_response(
+                {"detected": False, "wakeword": None, "error": str(e)}, status=500
+            )
+
     except Exception as e:
         logger.error(f"Request handling error: {e}", exc_info=True)
         return web.json_response({"error": str(e)}, status=500)
