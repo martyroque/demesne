@@ -53,7 +53,7 @@ services:
     restart: unless-stopped
     ports:
       - "10400:10400"
-    command: --preload-model okay_nabu
+    command: --debug
 
   wakeword-bridge:
     build: ./wakeword-bridge

@@ -70,10 +70,15 @@ class WakeWordBridge:
             logger.error(f"Error getting wake word info: {e}", exc_info=True)
             return None
 
-    async def detect_wakeword(self, audio_data: bytes) -> tuple[bool, Optional[str]]:
+    async def detect_wakeword(
+        self, audio_data: bytes, names: list[str] = None
+    ) -> tuple[bool, Optional[str]]:
         """
-        Send PCM audio to Wyoming OpenWakeWord and check for detection
-        Returns: (detected, wakeword_name) or (False, None)
+        Send PCM audio to Wyoming OpenWakeWord and get detection result
+        Args:
+            audio_data: PCM audio bytes (16kHz, 16-bit, mono)
+            names: List of wake word names to detect (e.g., ['okay_nabu'])
+        Returns: (detected: bool, wakeword_name: Optional[str])
         """
         try:
             logger.debug(
@@ -83,7 +88,6 @@ class WakeWordBridge:
             async with AsyncTcpClient(self.wakeword_host, self.wakeword_port) as client:
                 logger.debug("Connection opened, sending AudioStart")
 
-                # Step 1: Send AudioStart event
                 await client.write_event(
                     AudioStart(
                         rate=self.config.sample_rate,
@@ -93,7 +97,6 @@ class WakeWordBridge:
                 )
                 logger.debug("AudioStart sent")
 
-                # Step 2: Send audio in chunks
                 chunk_size = 1280 * 2  # 80ms worth of 16-bit samples
                 chunk_count = 0
                 for i in range(0, len(audio_data), chunk_size):
@@ -113,7 +116,8 @@ class WakeWordBridge:
                 await client.write_event(AudioStop().event())
                 logger.debug("AudioStop sent")
 
-                await client.write_event(Detect().event())
+                detect_event = Detect(names=names or ["okay_nabu"])
+                await client.write_event(detect_event.event())
                 logger.debug("Detect event sent")
 
                 if hasattr(client, "writer") and client.writer:
@@ -188,39 +192,35 @@ async def handle_detect(request):
     """
     POST /detect
     Content-Type: audio/pcm (16kHz, 16-bit, mono)
-    Returns: {"detected": true/false, "wakeword": "..."}
+    Body (optional JSON): {"names": ["okay_nabu", "alexa"]}
+    Returns: {"detected": bool, "wakeword": str | null}
     """
     bridge = request.app["bridge"]
 
     try:
+        names = None
+        if request.content_type == "application/json":
+            data = await request.json()
+            names = data.get("names", ["okay_nabu"])
+        else:
+            names = ["okay_nabu"]
+
         audio_data = await request.read()
 
         if not audio_data:
             return web.json_response({"error": "No audio data provided"}, status=400)
 
-        samples = len(audio_data) // 2
-        duration_ms = (samples / 16000) * 1000
-        logger.info(
-            f"Received {len(audio_data)} bytes ({samples} samples, {duration_ms:.0f}ms)"
+        logger.info(f"Detecting wake words: {names}")
+        logger.info(f"Received {len(audio_data)} bytes...")
+
+        detected, wakeword_name = await bridge.detect_wakeword(audio_data, names)
+
+        return web.json_response(
+            {
+                "detected": detected,
+                "wakeword": wakeword_name,
+            }
         )
-
-        try:
-            detected, wakeword = await bridge.detect_wakeword(audio_data)
-
-            logger.info(f"Detection result: detected={detected}, wakeword={wakeword}")
-
-            return web.json_response(
-                {
-                    "detected": detected,
-                    "wakeword": wakeword if wakeword else None,
-                }
-            )
-        except Exception as e:
-            logger.error(f"Detection failed: {e}")
-            return web.json_response(
-                {"detected": False, "wakeword": None, "error": str(e)}, status=500
-            )
-
     except Exception as e:
         logger.error(f"Request handling error: {e}", exc_info=True)
         return web.json_response({"error": str(e)}, status=500)
