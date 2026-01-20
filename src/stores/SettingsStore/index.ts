@@ -10,6 +10,12 @@ class SettingsStore extends Store {
   public homeControlEnabled = this.atom<boolean>(true, {
     persistence: { persistKey: "homeControlEnabled" },
   });
+  public wakeWordEnabled = this.atom<boolean>(false, {
+    persistence: { persistKey: "wakeWordEnabled" },
+  });
+  public wakeWordPhrase = this.atom<string>("hey jarvis", {
+    persistence: { persistKey: "wakeWordPhrase" },
+  });
 
   setAutoPlayTTS(autoPlayTTS: boolean) {
     this.autoPlayTTS.value = autoPlayTTS;
@@ -17,6 +23,10 @@ class SettingsStore extends Store {
 
   setHomeControlEnabled(homeControlEnabled: boolean) {
     this.homeControlEnabled.value = homeControlEnabled;
+  }
+
+  setWakeWordEnabled(enabled: boolean) {
+    this.wakeWordEnabled.value = enabled;
   }
 }
 

@@ -33,6 +33,8 @@ export const Settings: React.FC = () => {
   const ttsVoice = useValue(settingsStore.ttsVoice);
   const autoPlayTTS = useValue(settingsStore.autoPlayTTS);
   const homeControlEnabled = useValue(settingsStore.homeControlEnabled);
+  const wakeWordEnabled = useValue(settingsStore.wakeWordEnabled);
+  const wakeWordPhrase = useValue(settingsStore.wakeWordPhrase);
 
   const [isOpen, setIsOpen] = useState(false);
 
@@ -78,6 +80,51 @@ export const Settings: React.FC = () => {
             <p className="text-xs text-muted-foreground">
               {models.length} model{models.length !== 1 ? "s" : ""} available
             </p>
+          </div>
+
+          <div className="space-y-4 border-t pt-4">
+            <Label className="text-base font-medium">Wake Word Detection</Label>
+
+            <div className="flex items-center justify-between space-x-2">
+              <Label
+                htmlFor="wake-word-enabled"
+                className="flex flex-col space-y-1 font-normal"
+              >
+                <span className="text-sm">Enable Wake Word</span>
+                <span className="text-xs text-muted-foreground">
+                  {wakeWordEnabled
+                    ? `Say "${wakeWordPhrase}" to activate listening`
+                    : "Click microphone button to speak"}
+                </span>
+              </Label>
+              <Switch
+                id="wake-word-enabled"
+                checked={wakeWordEnabled}
+                onCheckedChange={(checked) =>
+                  settingsStore.setWakeWordEnabled(checked)
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="wake-word-phrase" className="text-sm font-normal">
+                Wake Phrase (WIP)
+              </Label>
+              <Select value={wakeWordPhrase} disabled>
+                <SelectTrigger id="wake-word-phrase">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Available Wake Words</SelectLabel>
+                    <SelectItem value="hey jarvis">Hey Jarvis</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Requires Docker services running
+              </p>
+            </div>
           </div>
 
           <div className="space-y-4 border-t pt-4">

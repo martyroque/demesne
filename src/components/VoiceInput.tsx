@@ -9,11 +9,13 @@ import WhisperService from "@/services/whisper";
 interface VoiceInputProps {
   onTranscript: (text: string) => void;
   onListening?: (isListening: boolean) => void;
+  autoActivate?: boolean; // Automatically start recording when true
 }
 
 export const VoiceInput: React.FC<VoiceInputProps> = ({
   onTranscript,
   onListening,
+  autoActivate = false,
 }) => {
   const whisperService = useStore(WhisperService);
 
@@ -26,6 +28,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
+  const autoActivatedRef = useRef(false);
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
@@ -36,6 +39,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
   };
 
   useEffect(() => {
+    // Stop recording and clear timer on unmount
     return () => {
       stopRecording();
       if (streamRef.current) {
@@ -45,7 +49,6 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
         clearInterval(timerRef.current);
       }
     };
-    // Stop recording and clear timer on unmount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -54,6 +57,17 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
       onListening(isRecording);
     }
   }, [isRecording, onListening]);
+
+  // Auto-activate recording when wake word detected
+  useEffect(() => {
+    if (autoActivate && !isRecording && !autoActivatedRef.current) {
+      autoActivatedRef.current = true;
+      startRecording();
+    } else if (!autoActivate) {
+      autoActivatedRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoActivate, isRecording]);
 
   const startRecording = async () => {
     try {
