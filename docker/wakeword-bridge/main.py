@@ -9,7 +9,7 @@ from wyoming.info import Describe, Info
 from config import Config
 
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,14 @@ class WakeWordBridge:
         Returns: (detected, wakeword_name) or (False, None)
         """
         try:
+            logger.debug(
+                f"Opening connection to {self.wakeword_host}:{self.wakeword_port}"
+            )
+
             async with AsyncTcpClient(self.wakeword_host, self.wakeword_port) as client:
+                logger.debug("Connection opened, sending AudioStart")
+
+                # Step 1: Send AudioStart event
                 await client.write_event(
                     AudioStart(
                         rate=self.config.sample_rate,
@@ -84,8 +91,11 @@ class WakeWordBridge:
                         channels=self.config.channels,
                     ).event()
                 )
+                logger.debug("AudioStart sent")
 
+                # Step 2: Send audio in chunks
                 chunk_size = 1280 * 2  # 80ms worth of 16-bit samples
+                chunk_count = 0
                 for i in range(0, len(audio_data), chunk_size):
                     chunk = audio_data[i : i + chunk_size]
                     await client.write_event(
@@ -96,35 +106,45 @@ class WakeWordBridge:
                             channels=self.config.channels,
                         ).event()
                     )
+                    chunk_count += 1
+
+                logger.debug(f"Sent {chunk_count} audio chunks")
 
                 await client.write_event(AudioStop().event())
+                logger.debug("AudioStop sent")
 
                 await client.write_event(Detect().event())
+                logger.debug("Detect event sent")
 
                 if hasattr(client, "writer") and client.writer:
                     await client.writer.drain()
+                    logger.debug("Writer flushed")
 
                 detected = False
                 wakeword_name = None
 
+                logger.debug("Starting to read events...")
+                event_count = 0
+
                 try:
                     while True:
-                        event = await asyncio.wait_for(client.read_event(), timeout=2.0)
+                        logger.debug(f"Waiting for event {event_count + 1}...")
+                        event = await asyncio.wait_for(client.read_event(), timeout=1.0)
 
                         if event is None:
+                            logger.debug("Received None event, breaking")
                             break
 
-                        logger.debug(f"Received event type: {event.type}")
+                        event_count += 1
+                        logger.debug(
+                            f"Received event {event_count}, type: {event.type}"
+                        )
 
                         if Detection.is_type(event.type):
                             detection = Detection.from_event(event)
-                            logger.info(f"Detection event attributes: {dir(detection)}")
-
-                            for attr in ["score", "confidence", "probability"]:
-                                if hasattr(detection, attr):
-                                    logger.info(
-                                        f"Detection {attr}: {getattr(detection, attr)}"
-                                    )
+                            logger.debug(
+                                f"Detection event! Attributes: {dir(detection)}"
+                            )
 
                             if hasattr(detection, "name"):
                                 logger.info(f"Wake word detected: {detection.name}")
@@ -132,9 +152,12 @@ class WakeWordBridge:
                                 wakeword_name = detection.name
 
                 except asyncio.TimeoutError:
-                    logger.debug("No more events from OpenWakeWord")
+                    logger.debug(f"Timeout after receiving {event_count} events")
                     pass
 
+                logger.debug(
+                    f"Returning: detected={detected}, wakeword={wakeword_name}"
+                )
                 return detected, wakeword_name
 
         except asyncio.TimeoutError:
