@@ -4,7 +4,7 @@ from typing import Optional
 from aiohttp import web
 from wyoming.audio import AudioChunk, AudioStart, AudioStop
 from wyoming.client import AsyncTcpClient
-from wyoming.wake import Detect, Detection
+from wyoming.wake import Detect, Detection, NotDetected
 from wyoming.info import Describe, Info
 from config import Config
 
@@ -80,13 +80,17 @@ class WakeWordBridge:
             names: List of wake word names to detect (e.g., ['okay_nabu'])
         Returns: (detected: bool, wakeword_name: Optional[str])
         """
+        if names is None:
+            names = ["hey_jarvis"]  # Default
+
         try:
             logger.debug(
                 f"Opening connection to {self.wakeword_host}:{self.wakeword_port}"
             )
 
             async with AsyncTcpClient(self.wakeword_host, self.wakeword_port) as client:
-                logger.debug("Connection opened, sending AudioStart")
+                logger.debug(f"Sending Detect event with models: {names}")
+                await client.write_event(Detect(names=names).event())
 
                 await client.write_event(
                     AudioStart(
@@ -116,30 +120,22 @@ class WakeWordBridge:
                 await client.write_event(AudioStop().event())
                 logger.debug("AudioStop sent")
 
-                detect_event = Detect(names=names or ["okay_nabu"])
-                await client.write_event(detect_event.event())
-                logger.debug("Detect event sent")
-
-                if hasattr(client, "writer") and client.writer:
-                    await client.writer.drain()
-                    logger.debug("Writer flushed")
-
                 detected = False
                 wakeword_name = None
-
-                logger.debug("Starting to read events...")
                 event_count = 0
 
+                logger.debug("Starting to read events...")
                 try:
                     while True:
-                        logger.debug(f"Waiting for event {event_count + 1}...")
+                        event_count += 1
+                        logger.debug(f"Waiting for event {event_count}...")
+
                         event = await asyncio.wait_for(client.read_event(), timeout=1.0)
 
                         if event is None:
                             logger.debug("Received None event, breaking")
                             break
 
-                        event_count += 1
                         logger.debug(
                             f"Received event {event_count}, type: {event.type}"
                         )
@@ -149,11 +145,13 @@ class WakeWordBridge:
                             logger.debug(
                                 f"Detection event! Attributes: {dir(detection)}"
                             )
-
-                            if hasattr(detection, "name"):
-                                logger.info(f"Wake word detected: {detection.name}")
-                                detected = True
-                                wakeword_name = detection.name
+                            detected = True
+                            wakeword_name = detection.name
+                            logger.info(f"Wake word detected: {wakeword_name}")
+                            break
+                        elif NotDetected.is_type(event.type):
+                            logger.info("Wake word not detected")
+                            break
 
                 except asyncio.TimeoutError:
                     logger.debug(f"Timeout after receiving {event_count} events")
