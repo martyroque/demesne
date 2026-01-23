@@ -13,6 +13,7 @@ This project is under active development. Core features are functional but the i
 ## What It Does
 
 - **Voice Control**: Speak commands naturally to control your smart home
+- **Wake Word Detection**: Hands-free activation with "Hey Jarvis" or custom wake words
 - **Voice Responses**: Zion speaks back using local text-to-speech
 - **Local AI**: Uses Ollama for on-device language processing (no data leaves your network)
 - **Home Assistant Integration**: Works with existing Home Assistant installations
@@ -51,12 +52,13 @@ VITE_HA_URL=http://localhost:8123
 VITE_HA_TOKEN=your_home_assistant_token_here
 VITE_WHISPER_URL=http://localhost:10301
 VITE_PIPER_URL=http://localhost:10201
+VITE_WAKEWORD_URL=http://localhost:10401
 ```
 
 Get your Home Assistant token: [Generate a Long-Lived Access Token](https://www.home-assistant.io/docs/authentication/#your-account-profile)
 
 ```bash
-# Start voice services (Whisper STT + Piper TTS)
+# Start voice services
 cd docker
 docker-compose up -d --build
 
@@ -69,10 +71,18 @@ Visit `http://localhost:5173` and click the microphone to start speaking command
 
 ## Example Commands
 
+### Wake Word (Hands-Free)
+
+Say **"Hey Jarvis"** to activate, then speak your command:
+
 - "Turn on the living room light"
 - "Set bedroom brightness to 50%"
 - "Make the office light blue"
+
+### Manual (Click Microphone)
+
 - "Turn everything off"
+- "What's the temperature?"
 
 ## What's Next?
 
@@ -83,6 +93,7 @@ Demesne is designed as the foundation for something bigger - a self-sovereign no
 - **Frontend**: React + TypeScript + Vite
 - **State Management**: Nucleux
 - **Voice Recognition**: Local Whisper (via Wyoming protocol) + Wyoming-to-HTTP bridge
+- **Wake Word Detection**: OpenWakeWord (via Wyoming protocol) + Wyoming-to-HTTP bridge
 - **Text-to-Speech**: Local Piper TTS (via Wyoming protocol) + Wyoming-to-HTTP bridge
 - **LLM**: Ollama (llama3.1:8b, llama3.2:3b)
 - **Smart Home**: Home Assistant REST API
