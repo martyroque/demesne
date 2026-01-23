@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useSilenceDetection } from "@/hooks/useSilenceDetection";
 import { cn } from "@/lib/utils";
 import WhisperService from "@/services/whisper";
 
@@ -19,24 +20,23 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
 }) => {
   const whisperService = useStore(WhisperService);
 
+  // TODO: move this to audio service/hook
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
 
+  // TODO: move to audio service/hook
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
   const autoActivatedRef = useRef(false);
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-  };
+  const { startSilenceDetection, stopRecording } = useSilenceDetection(
+    streamRef,
+    mediaRecorderRef,
+    autoActivatedRef
+  );
 
   useEffect(() => {
     // Stop recording and clear timer on unmount
@@ -62,7 +62,9 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
   useEffect(() => {
     if (autoActivate && !isRecording && !autoActivatedRef.current) {
       autoActivatedRef.current = true;
-      startRecording();
+      startRecording().then(() => {
+        startSilenceDetection();
+      });
     } else if (!autoActivate) {
       autoActivatedRef.current = false;
     }
