@@ -46,3 +46,26 @@ services:
     depends_on:
       - piper
     restart: unless-stopped
+
+  openwakeword:
+    container_name: openwakeword
+    image: rhasspy/wyoming-openwakeword:latest
+    restart: unless-stopped
+    ports:
+      - "10400:10400"
+    command: --debug
+
+  wakeword-bridge:
+    build: ./wakeword-bridge
+    container_name: demesne-wakeword-bridge
+    ports:
+      - "10401:10401"
+    environment:
+      - WAKEWORD_HOST=openwakeword
+      - WAKEWORD_PORT=10400
+      - BRIDGE_HOST=0.0.0.0
+      - BRIDGE_PORT=10401
+      - CORS_ORIGINS=*
+    depends_on:
+      - openwakeword
+    restart: unless-stopped

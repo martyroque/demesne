@@ -11,6 +11,7 @@ import HomeAssistantService from "@/services/home-assistant";
 import IntentClassifierService from "@/services/intent-classifier";
 import OllamaService, { type Message } from "@/services/ollama";
 import PiperService from "@/services/piper";
+import WakeWordService, { type WakeWordDetection } from "@/services/wake-word";
 import ChatHistoryStore from "@/stores/ChatHistoryStore";
 import ModelStore from "@/stores/ModelStore";
 import SettingsStore from "@/stores/SettingsStore";
@@ -32,6 +33,7 @@ export const Chat: React.FC = () => {
   const ollamaService = useStore(OllamaService);
   const homeAssistantService = useStore(HomeAssistantService);
   const piperService = useStore(PiperService);
+  const wakeWordService = useStore(WakeWordService);
 
   const chatHistoryStore = useStore(ChatHistoryStore);
   const settingsStore = useStore(SettingsStore);
@@ -41,17 +43,55 @@ export const Chat: React.FC = () => {
   const ttsVoice = useValue(settingsStore.ttsVoice);
   const autoPlayTTS = useValue(settingsStore.autoPlayTTS);
   const isSpeaking = useValue(piperService.isSpeaking);
+  const wakeWordEnabled = useValue(settingsStore.wakeWordEnabled);
+  const wakeWordPhrase = useValue(settingsStore.wakeWordPhrase);
+  const isWakeWordListening = useValue(wakeWordService.isListening);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [wakeWordDetected, setWakeWordDetected] = useState(false);
+  const [isVoiceInputActive, setIsVoiceInputActive] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingMessage]);
+
+  const handleWakeWordDetection = (detection: WakeWordDetection) => {
+    console.log("Wake word detected:", detection);
+    setWakeWordDetected(true);
+
+    // Brief visual feedback
+    setTimeout(() => {
+      setWakeWordDetected(false);
+    }, 2000);
+
+    // Automatically trigger voice input
+    setIsVoiceInputActive(true);
+  };
+
+  // Handle wake word detection on/off
+  useEffect(() => {
+    if (wakeWordEnabled && !isVoiceInputActive) {
+      wakeWordService.startDetection(handleWakeWordDetection);
+    } else if (!wakeWordEnabled && isWakeWordListening) {
+      wakeWordService.stopDetection();
+    }
+
+    return () => {
+      if (isWakeWordListening) {
+        wakeWordService.stopDetection();
+      }
+    };
+  }, [
+    wakeWordService,
+    isWakeWordListening,
+    wakeWordEnabled,
+    isVoiceInputActive,
+  ]);
 
   const speakResponse = async (text: string) => {
     if (!autoPlayTTS) return;
@@ -127,6 +167,7 @@ export const Chat: React.FC = () => {
   const handleVoiceTranscript = async (transcript: string) => {
     if (!transcript.trim()) return;
     await processCommand(transcript);
+    setIsVoiceInputActive(false);
   };
 
   const handleManualSpeak = async (text: string) => {
@@ -202,15 +243,38 @@ export const Chat: React.FC = () => {
               </div>
             )}
 
+            {wakeWordDetected && (
+              <div className="rounded-lg bg-green-500/10 p-4 italic text-green-600 dark:text-green-400">
+                👂 Wake word detected! Listening...
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
         </div>
       </div>
 
       <div>
-        <VoiceInput onTranscript={handleVoiceTranscript} />
+        {wakeWordEnabled && isWakeWordListening && !isVoiceInputActive && (
+          <div className="mb-4 rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 p-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              👂 Listening for wake word: <strong>"{wakeWordPhrase}"</strong>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Say the wake word to activate voice input
+            </p>
+          </div>
+        )}
+
+        <VoiceInput
+          onTranscript={handleVoiceTranscript}
+          onListening={setIsVoiceInputActive}
+          autoActivate={wakeWordDetected}
+        />
         <p className="mt-2 text-center text-sm text-muted-foreground">
-          Click microphone and speak your message
+          {wakeWordEnabled
+            ? `Say "${wakeWordPhrase}" or click microphone`
+            : "Click microphone and speak your message"}
         </p>
       </div>
 
