@@ -117,20 +117,7 @@ class ChatHistoryStore extends Store {
   setActiveSession(sessionId: string) {
     if (this.sessions.value.find((s) => s.id === sessionId)) {
       this.currentSessionId.value = sessionId;
-      this.updateSessionActivity(sessionId);
     }
-  }
-
-  private updateSessionActivity(sessionId: string) {
-    this.sessions.value = this.sessions.value.map((session) => {
-      if (session.id === sessionId) {
-        return {
-          ...session,
-          lastActiveAt: Date.now(),
-        };
-      }
-      return session;
-    });
   }
 
   async addMessage(message: Message) {
