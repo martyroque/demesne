@@ -1,4 +1,5 @@
 import { formatDistanceToNow } from "date-fns";
+import { Trash2 } from "lucide-react";
 import { useStore, useValue } from "nucleux";
 import React from "react";
 
@@ -27,6 +28,20 @@ export const ChatSidebar: React.FC = () => {
     homeAssistantService.resetConversation();
   };
 
+  const handleDeleteSession = (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (sortedSessions.length === 1) {
+      alert("Cannot delete the last chat session");
+      return;
+    }
+
+    if (confirm("Delete this chat? This cannot be undone.")) {
+      chatHistoryStore.deleteSession(sessionId);
+      homeAssistantService.resetConversation();
+    }
+  };
+
   const formatTimestamp = (timestamp: number): string => {
     return formatDistanceToNow(timestamp, { addSuffix: true });
   };
@@ -52,18 +67,26 @@ export const ChatSidebar: React.FC = () => {
         ) : (
           <div className="space-y-2">
             {sortedSessions.map((session) => (
-              <button
+              <div
                 key={session.id}
                 onClick={() => handleSessionClick(session.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleSessionClick(session.id);
+                  }
+                }}
                 className={cn(
-                  "w-full rounded-lg border p-3 text-left transition-all",
+                  "group relative w-full rounded-lg border p-3 text-left transition-all cursor-pointer",
                   "hover:bg-accent",
                   session.id === currentSessionId
                     ? "border-primary bg-accent"
                     : "border-transparent"
                 )}
               >
-                <div className="mb-1 line-clamp-2 text-sm text-foreground">
+                <div className="mb-1 line-clamp-2 pr-8 text-sm text-foreground">
                   {sessionPreviews[session.id]}
                 </div>
                 <div className="flex justify-between text-xs text-muted-foreground">
@@ -73,7 +96,19 @@ export const ChatSidebar: React.FC = () => {
                     {session.messages.length !== 1 ? "s" : ""}
                   </span>
                 </div>
-              </button>
+                <button
+                  onClick={(e) => handleDeleteSession(session.id, e)}
+                  className={cn(
+                    "absolute top-3 right-3 rounded p-1 opacity-0 transition-opacity",
+                    "hover:bg-destructive/10 hover:text-destructive",
+                    "group-hover:opacity-100",
+                    "focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-destructive/50"
+                  )}
+                  aria-label="Delete chat"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             ))}
           </div>
         )}

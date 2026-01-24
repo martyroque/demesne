@@ -117,23 +117,10 @@ class ChatHistoryStore extends Store {
   setActiveSession(sessionId: string) {
     if (this.sessions.value.find((s) => s.id === sessionId)) {
       this.currentSessionId.value = sessionId;
-      this.updateSessionActivity(sessionId);
     }
   }
 
-  private updateSessionActivity(sessionId: string) {
-    this.sessions.value = this.sessions.value.map((session) => {
-      if (session.id === sessionId) {
-        return {
-          ...session,
-          lastActiveAt: Date.now(),
-        };
-      }
-      return session;
-    });
-  }
-
-  async addMessage(message: Message) {
+  addMessage(message: Message) {
     const sessionId = this.currentSessionId.value;
     if (!sessionId) {
       console.error("No active session");
@@ -157,11 +144,27 @@ class ChatHistoryStore extends Store {
     });
   }
 
-  async clearHistory() {
+  clearHistory() {
     if (confirm("Clear all chat history? This cannot be undone.")) {
       this.sessions.value = [];
       this.currentSessionId.value = null;
       this.createNewSession();
+    }
+  }
+
+  deleteSession(sessionId: string) {
+    if (this.sessions.value.length === 1) {
+      return;
+    }
+
+    const isCurrentSession = this.currentSessionId.value === sessionId;
+
+    this.sessions.value = this.sessions.value.filter(
+      (session) => session.id !== sessionId
+    );
+
+    if (isCurrentSession && this.sessions.value.length > 0) {
+      this.currentSessionId.value = this.sortedSessions.value[0].id;
     }
   }
 }

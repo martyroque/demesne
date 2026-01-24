@@ -4,7 +4,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import HomeAssistantService from "@/services/home-assistant";
@@ -17,6 +16,7 @@ import ModelStore from "@/stores/ModelStore";
 import SettingsStore from "@/stores/SettingsStore";
 
 import { VoiceInput } from "./VoiceInput";
+import { Textarea } from "./ui/textarea";
 
 const safeMessageContent = (content: unknown): string => {
   if (typeof content === "string") {
@@ -281,13 +281,18 @@ export const Chat: React.FC = () => {
       <Separator />
 
       <div className="flex gap-2">
-        <Input
-          type="text"
+        <Textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyUp={(e) => e.key === "Enter" && handleSend()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
           placeholder="Or type your message..."
           className="flex-1"
+          rows={1}
           disabled={loading || isStreaming}
         />
         <Button
