@@ -3,7 +3,7 @@ import ModelStore from "../../stores/ModelStore";
 import SettingsStore from "../../stores/SettingsStore";
 import OllamaService, { type Message } from "../ollama";
 
-const CLASSIFICATION_PROMPT = `You are a smart home intent classifier. Determine if the user's message is requesting IMMEDIATE home automation control or general conversation.
+const CLASSIFICATION_PROMPT = `Classify as HOME_CONTROL or GENERAL_CHAT.
 
 HOME_CONTROL requests are ONLY commands that require IMMEDIATE device action:
 - Direct device control: "turn on/off", "set", "dim", "brighten"
@@ -24,18 +24,7 @@ GENERAL_CHAT includes everything else:
 - Small talk: greetings, jokes, opinions
 - Discussions about home automation (not commands)
 - Requests for information without device action
-
-CRITICAL DISTINCTIONS:
-- "Turn on the light" → HOME_CONTROL (immediate action)
-- "How do I turn on the light?" → GENERAL_CHAT (asking for help)
-- "Can you turn on the light?" → HOME_CONTROL (polite command)
-- "Can smart lights save energy?" → GENERAL_CHAT (general question)
-- "What lights do I have?" → GENERAL_CHAT (asking about your knowledge)
-- "Turn on all the lights" → HOME_CONTROL (command)
-- "Is the garage door open?" → HOME_CONTROL (status query)
-- "How do garage doors work?" → GENERAL_CHAT (general knowledge)
-
-Respond with ONLY a single word: "HOME_CONTROL" or "GENERAL_CHAT"
+- Debugging: "why am I seeing this error?"
 
 Examples:
 
@@ -79,7 +68,15 @@ User: "Set brightness to 50%"
 Response: HOME_CONTROL
 
 User: "What's the difference between Zigbee and Z-Wave?"
-Response: GENERAL_CHAT`;
+Response: GENERAL_CHAT
+
+User: "Can you help me troubleshoot this error?"
+Response: GENERAL_CHAT
+
+User: "Can you help me review the following code?"
+Response: GENERAL_CHAT
+
+Now classify this message with ONE WORD ONLY:`;
 
 export type IntentType = "HOME_CONTROL" | "GENERAL_CHAT";
 
@@ -102,7 +99,9 @@ class IntentClassifierService extends Store {
       console.log("IntentClassifierService | message", userMessage);
 
       const activeModel = this.modelStore.activeModel.value;
-      const response = await this.ollamaService.chat(activeModel, messages);
+      const response = await this.ollamaService.chat(activeModel, messages, {
+        num_predict: 20,
+      });
 
       console.log(
         "IntentClassifierService | classification",

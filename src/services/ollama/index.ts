@@ -22,14 +22,18 @@ class OllamaService extends Store {
   async chat(
     model: string,
     messages: Message[],
-    stream: boolean = false
+    options?: {
+      num_ctx?: number;
+      num_predict?: number;
+    }
   ): Promise<ChatResponse> {
     const response = await this.ollamaClient.post("/api/chat", {
       model,
       messages,
-      stream,
+      stream: false,
       options: {
-        num_ctx: 8192,
+        num_ctx: options?.num_ctx ?? 8192,
+        ...(options?.num_predict && { num_predict: options.num_predict }),
       },
     });
     return response.data;
@@ -66,30 +70,48 @@ class OllamaService extends Store {
 
     const decoder = new TextDecoder();
     let buffer = "";
+    let firstChunk = true;
+
+    const processBuffer = () => {
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (line.trim()) {
+          try {
+            const parsed = JSON.parse(line);
+            if (parsed.message?.content) {
+              onChunk(parsed.message.content);
+              if (firstChunk) {
+                firstChunk = false;
+                clearTimeout(forceFlushTimeout);
+              }
+            }
+          } catch (e) {
+            console.error("Failed to parse chunk:", e, "Line:", line);
+          }
+        }
+      }
+    };
+
+    const forceFlushTimeout = setTimeout(() => {
+      if (firstChunk && buffer.length > 0) {
+        console.warn("Force flushing delayed first chunk");
+        processBuffer();
+      }
+    }, 200);
 
     try {
       while (true) {
         const { done, value } = await reader.read();
 
-        if (done) break;
+        if (done) {
+          clearTimeout(forceFlushTimeout);
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
-
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (line.trim()) {
-            try {
-              const parsed = JSON.parse(line);
-              if (parsed.message?.content) {
-                onChunk(parsed.message.content);
-              }
-            } catch (e) {
-              console.error("Failed to parse chunk:", e);
-            }
-          }
-        }
+        processBuffer();
       }
     } finally {
       reader.releaseLock();

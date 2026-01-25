@@ -6,13 +6,10 @@ import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import HomeAssistantService from "@/services/home-assistant";
-import IntentClassifierService from "@/services/intent-classifier";
-import OllamaService, { type Message } from "@/services/ollama";
 import PiperService from "@/services/piper";
 import WakeWordService, { type WakeWordDetection } from "@/services/wake-word";
 import ChatHistoryStore from "@/stores/ChatHistoryStore";
-import ModelStore from "@/stores/ModelStore";
+import ChatStore from "@/stores/ChatStore";
 import SettingsStore from "@/stores/SettingsStore";
 
 import { VoiceInput } from "./VoiceInput";
@@ -29,28 +26,23 @@ const safeMessageContent = (content: unknown): string => {
 };
 
 export const Chat: React.FC = () => {
-  const intentClassifierService = useStore(IntentClassifierService);
-  const ollamaService = useStore(OllamaService);
-  const homeAssistantService = useStore(HomeAssistantService);
   const piperService = useStore(PiperService);
   const wakeWordService = useStore(WakeWordService);
-
   const chatHistoryStore = useStore(ChatHistoryStore);
   const settingsStore = useStore(SettingsStore);
+  const chatStore = useStore(ChatStore);
 
-  const activeModel = useValue(ModelStore, "activeModel");
   const messages = useValue(chatHistoryStore.messages);
+  const isLoading = useValue(chatStore.isLoading);
+  const isStreaming = useValue(chatStore.isStreaming);
+  const streamingMessage = useValue(chatStore.streamingMessage);
   const ttsVoice = useValue(settingsStore.ttsVoice);
-  const autoPlayTTS = useValue(settingsStore.autoPlayTTS);
-  const isSpeaking = useValue(piperService.isSpeaking);
   const wakeWordEnabled = useValue(settingsStore.wakeWordEnabled);
   const wakeWordPhrase = useValue(settingsStore.wakeWordPhrase);
+  const isSpeaking = useValue(piperService.isSpeaking);
   const isWakeWordListening = useValue(wakeWordService.isListening);
 
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [streamingMessage, setStreamingMessage] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
   const [wakeWordDetected, setWakeWordDetected] = useState(false);
   const [isVoiceInputActive, setIsVoiceInputActive] = useState(false);
 
@@ -93,80 +85,15 @@ export const Chat: React.FC = () => {
     isVoiceInputActive,
   ]);
 
-  const speakResponse = async (text: string) => {
-    if (!autoPlayTTS) return;
-    await piperService.speak({ text, voice: ttsVoice });
-  };
-
-  const processCommand = async (command: string) => {
-    const userMessage: Message = { role: "user", content: command };
-
-    chatHistoryStore.addMessage(userMessage);
-
-    setLoading(true);
-
-    try {
-      const intentType = await intentClassifierService.classifyIntent(command);
-
-      if (intentType === "HOME_CONTROL") {
-        const result = await homeAssistantService.processConversation(command);
-        const assistantMessage: Message = {
-          role: "assistant",
-          content: result,
-        };
-
-        chatHistoryStore.addMessage(assistantMessage);
-        setLoading(false);
-        await speakResponse(result);
-      } else {
-        setIsStreaming(true);
-        setStreamingMessage("");
-        setLoading(false);
-
-        let fullResponse = "";
-
-        await ollamaService.chatStream(
-          activeModel,
-          [...messages, userMessage],
-          (chunk) => {
-            fullResponse += chunk;
-            setStreamingMessage(fullResponse);
-          }
-        );
-
-        const assistantMessage: Message = {
-          role: "assistant",
-          content: fullResponse,
-        };
-
-        chatHistoryStore.addMessage(assistantMessage);
-        setStreamingMessage("");
-        setIsStreaming(false);
-        await speakResponse(fullResponse);
-      }
-    } catch (error) {
-      console.error("Chat error:", error);
-      const errorMessage: Message = {
-        role: "assistant",
-        content: "Sorry, something went wrong.",
-      };
-
-      chatHistoryStore.addMessage(errorMessage);
-      setLoading(false);
-      setIsStreaming(false);
-      setStreamingMessage("");
-    }
-  };
-
   const handleSend = async () => {
     if (!input.trim()) return;
     setInput("");
-    await processCommand(input);
+    await chatStore.sendMessage(input);
   };
 
   const handleVoiceTranscript = async (transcript: string) => {
     if (!transcript.trim()) return;
-    await processCommand(transcript);
+    await chatStore.sendMessage(transcript);
     setIsVoiceInputActive(false);
   };
 
@@ -231,7 +158,7 @@ export const Chat: React.FC = () => {
               </div>
             )}
 
-            {loading && (
+            {isLoading && (
               <div className="rounded-lg bg-muted p-4 italic text-muted-foreground">
                 Thinking...
               </div>
@@ -293,11 +220,11 @@ export const Chat: React.FC = () => {
           placeholder="Or type your message..."
           className="flex-1"
           rows={1}
-          disabled={loading || isStreaming}
+          disabled={isLoading || isStreaming}
         />
         <Button
           onClick={handleSend}
-          disabled={loading || isStreaming || !input.trim()}
+          disabled={isLoading || isStreaming || !input.trim()}
         >
           Send
         </Button>
