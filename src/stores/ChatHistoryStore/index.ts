@@ -1,11 +1,13 @@
 import { Store } from "nucleux";
+
+import DatabaseService from "../../services/database";
 import type { Message } from "../../services/ollama";
 
 interface MessageWithTimestamp extends Message {
   timestamp: number;
 }
 
-interface ChatSession {
+interface ChatSessionWithMessages {
   id: string;
   createdAt: number;
   lastActiveAt: number;
@@ -13,22 +15,32 @@ interface ChatSession {
 }
 
 class ChatHistoryStore extends Store {
-  public sessions = this.atom<ChatSession[]>([], {
-    persistence: { persistKey: "demesne-sessions" },
-  });
+  private dbService = this.inject(DatabaseService);
+  private dbVersion = this.atom(0);
 
   public currentSessionId = this.atom<string | null>(null, {
     persistence: { persistKey: "demesne-current-session" },
   });
 
   public messages = this.deriveAtom(
-    [this.sessions, this.currentSessionId],
-    (sessions, currentSessionId) => {
-      if (!currentSessionId) {
-        return [];
-      }
-      const currentSession = sessions.find((s) => s.id === currentSessionId);
-      return currentSession?.messages || [];
+    [this.currentSessionId, this.dbVersion],
+    (sessionId) => {
+      if (!sessionId) return [];
+      return this.dbService.getSessionMessages(sessionId);
+    }
+  );
+
+  public sessions = this.deriveAtom(
+    [this.dbVersion],
+    (): ChatSessionWithMessages[] => {
+      const dbSessions = this.dbService.getAllSessions();
+
+      return dbSessions.map((session) => ({
+        id: session.id,
+        createdAt: session.created_at,
+        lastActiveAt: session.last_active_at,
+        messages: this.dbService.getSessionMessages(session.id),
+      }));
     }
   );
 
@@ -42,17 +54,15 @@ class ChatHistoryStore extends Store {
     }
   );
 
-  public totalMessageCount = this.deriveAtom([this.sessions], (sessions) => {
-    return sessions.reduce(
-      (total, session) => total + session.messages.length,
-      0
-    );
+  public totalMessageCount = this.deriveAtom([this.dbVersion], () => {
+    return this.dbService.getTotalMessageCount();
   });
 
   public currentSessionMessageCount = this.deriveAtom(
-    [this.currentSession],
-    (currentSession) => {
-      return currentSession?.messages.length || 0;
+    [this.currentSessionId, this.dbVersion],
+    (sessionId) => {
+      if (!sessionId) return 0;
+      return this.dbService.getMessageCount(sessionId);
     }
   );
 
@@ -66,7 +76,6 @@ class ChatHistoryStore extends Store {
         if (session.messages.length === 0) {
           previews[session.id] = "New chat";
         } else {
-          // Find first user message
           const firstUserMessage = session.messages.find(
             (m) => m.role === "user"
           );
@@ -87,35 +96,67 @@ class ChatHistoryStore extends Store {
   constructor() {
     super();
 
-    // If no sessions exist, create initial session
-    if (this.sessions.value.length === 0) {
-      this.createNewSession();
+    this.watchAtom(this.dbService.isReady, (isReady) => {
+      if (isReady) {
+        this.initChatHistory();
+
+        setTimeout(() => {
+          if (this.shouldVacuum()) {
+            console.log("Database needs optimization, running VACUUM...");
+            this.vacuum();
+          }
+        }, 10000);
+      }
+    });
+  }
+
+  private shouldVacuum(): boolean {
+    const stats = this.dbService.getDatabaseStats();
+
+    const lastVacuum = localStorage.getItem("last-vacuum");
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+    return (
+      stats.dbSizeKB > 1024 &&
+      (!lastVacuum || parseInt(lastVacuum) < sevenDaysAgo) &&
+      stats.sessions < stats.messages / 50
+    );
+  }
+
+  private initChatHistory() {
+    if (this.dbService.isReady.value == false) {
+      console.error("Database is not ready");
+      return;
     }
 
-    // If no current session set, use the most recent one
-    if (!this.currentSessionId.value && this.sessions.value.length > 0) {
-      this.currentSessionId.value =
-        this.sessions.value[this.sessions.value.length - 1].id;
+    const allSessions = this.dbService.getAllSessions();
+
+    if (allSessions.length === 0) {
+      this.createNewSession();
+    } else {
+      if (!this.currentSessionId.value) {
+        this.currentSessionId.value = allSessions[0].id;
+      }
+
+      this.dbVersion.value += 1;
     }
   }
 
   createNewSession(): string {
     const sessionId = `session-${Date.now()}`;
-    const newSession: ChatSession = {
-      id: sessionId,
-      createdAt: Date.now(),
-      lastActiveAt: Date.now(),
-      messages: [],
-    };
 
-    this.sessions.value = [...this.sessions.value, newSession];
+    this.dbService.createSession(sessionId);
+
     this.currentSessionId.value = sessionId;
+
+    this.dbVersion.value += 1;
 
     return sessionId;
   }
 
   setActiveSession(sessionId: string) {
-    if (this.sessions.value.find((s) => s.id === sessionId)) {
+    const session = this.dbService.getSession(sessionId);
+    if (session) {
       this.currentSessionId.value = sessionId;
     }
   }
@@ -127,45 +168,60 @@ class ChatHistoryStore extends Store {
       return;
     }
 
-    const messageWithTimestamp: MessageWithTimestamp = {
-      ...message,
-      timestamp: Date.now(),
-    };
+    const timestamp = Date.now();
 
-    this.sessions.value = this.sessions.value.map((session) => {
-      if (session.id === sessionId) {
-        return {
-          ...session,
-          messages: [...session.messages, messageWithTimestamp],
-          lastActiveAt: Date.now(),
-        };
-      }
-      return session;
-    });
+    this.dbService.saveMessage(
+      sessionId,
+      message.role,
+      message.content,
+      timestamp
+    );
+
+    this.dbVersion.value += 1;
+  }
+
+  vacuum() {
+    console.log("Optimizing database...");
+    this.dbService.vacuum();
+    localStorage.setItem("last-vacuum", Date.now().toString());
+    console.log("Database optimized");
   }
 
   clearHistory() {
     if (confirm("Clear all chat history? This cannot be undone.")) {
-      this.sessions.value = [];
+      const allSessions = this.dbService.getAllSessions();
+      allSessions.forEach((session) => {
+        this.dbService.deleteSession(session.id);
+      });
+
       this.currentSessionId.value = null;
+      this.dbVersion.value += 1;
+
       this.createNewSession();
+
+      this.vacuum();
     }
   }
 
   deleteSession(sessionId: string) {
-    if (this.sessions.value.length === 1) {
+    const allSessions = this.dbService.getAllSessions();
+    if (allSessions.length === 1) {
+      alert("Cannot delete the last chat session");
       return;
     }
 
     const isCurrentSession = this.currentSessionId.value === sessionId;
 
-    this.sessions.value = this.sessions.value.filter(
-      (session) => session.id !== sessionId
-    );
+    this.dbService.deleteSession(sessionId);
 
-    if (isCurrentSession && this.sessions.value.length > 0) {
-      this.currentSessionId.value = this.sortedSessions.value[0].id;
+    if (isCurrentSession) {
+      const remainingSessions = this.dbService.getAllSessions();
+      if (remainingSessions.length > 0) {
+        this.setActiveSession(remainingSessions[0].id);
+      }
     }
+
+    this.dbVersion.value += 1;
   }
 }
 
