@@ -14,6 +14,15 @@ interface ChatSession {
   last_active_at: number;
 }
 
+interface SearchResult {
+  id: number;
+  role: string;
+  content: string;
+  timestamp: number;
+  distance: number;
+  similarity: number;
+}
+
 class DatabaseService extends Store {
   private db: SqlJsDatabase | null = null;
   public isReady = this.atom(false);
@@ -77,7 +86,7 @@ class DatabaseService extends Store {
         role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
         content TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
-        embedding TEXT,
+        embedding BLOB,
         FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
       );
     `);
@@ -94,6 +103,16 @@ class DatabaseService extends Store {
     this.db.run(
       `CREATE INDEX IF NOT EXISTS idx_messages_embedded ON chat_messages(id) WHERE embedding IS NOT NULL;`
     );
+  }
+
+  private embeddingToBlob(embedding: number[]): Uint8Array {
+    const float32Array = new Float32Array(embedding);
+    return new Uint8Array(float32Array.buffer);
+  }
+
+  private blobToEmbedding(blob: Uint8Array): number[] {
+    const float32Array = new Float32Array(blob.buffer);
+    return Array.from(float32Array);
   }
 
   private persist() {
@@ -124,6 +143,31 @@ class DatabaseService extends Store {
       bytes[i] = binary.charCodeAt(i);
     }
     return bytes;
+  }
+
+  private cosineSimilarity(vecA: number[], vecB: number[]): number {
+    if (vecA.length !== vecB.length) {
+      throw new Error("Vectors must have same length");
+    }
+
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+
+    for (let i = 0; i < vecA.length; i++) {
+      dotProduct += vecA[i] * vecB[i];
+      normA += vecA[i] * vecA[i];
+      normB += vecB[i] * vecB[i];
+    }
+
+    normA = Math.sqrt(normA);
+    normB = Math.sqrt(normB);
+
+    if (normA === 0 || normB === 0) {
+      return 0;
+    }
+
+    return dotProduct / (normA * normB);
   }
 
   createSession(sessionId: string): void {
@@ -240,14 +284,83 @@ class DatabaseService extends Store {
   private updateEmbedding(messageId: number, embedding: number[]) {
     if (!this.db) return;
 
-    const embeddingJson = JSON.stringify(embedding);
+    const blob = this.embeddingToBlob(embedding);
 
     this.db.run(`UPDATE chat_messages SET embedding = ? WHERE id = ?`, [
-      embeddingJson,
+      blob,
       messageId,
     ]);
 
     this.persist();
+  }
+
+  async searchSimilar(
+    queryEmbedding: number[],
+    limit: number = 5,
+    sessionId?: string,
+    minSimilarity: number = 0.0
+  ): Promise<SearchResult[]> {
+    if (!this.db) return [];
+
+    console.log(
+      `DatabaseService | Searching for similar messages (limit: ${limit})`
+    );
+
+    const sql = sessionId
+      ? `SELECT id, role, content, timestamp, embedding 
+         FROM chat_messages 
+         WHERE session_id = ? AND embedding IS NOT NULL`
+      : `SELECT id, role, content, timestamp, embedding 
+         FROM chat_messages 
+         WHERE embedding IS NOT NULL`;
+
+    const params = sessionId ? [sessionId] : [];
+    const result = this.db.exec(sql, params);
+
+    if (result.length === 0 || result[0].values.length === 0) {
+      console.log("DatabaseService | No embedded messages found");
+      return [];
+    }
+
+    const results: SearchResult[] = [];
+
+    for (const row of result[0].values) {
+      const id = row[0] as number;
+      const role = row[1] as string;
+      const content = row[2] as string;
+      const timestamp = row[3] as number;
+      const embeddingBlob = row[4] as Uint8Array;
+
+      try {
+        const messageEmbedding = this.blobToEmbedding(embeddingBlob);
+        const similarity = this.cosineSimilarity(
+          queryEmbedding,
+          messageEmbedding
+        );
+
+        if (similarity >= minSimilarity) {
+          results.push({
+            id,
+            role,
+            content,
+            timestamp,
+            distance: 1 - similarity,
+            similarity,
+          });
+        }
+      } catch (error) {
+        console.error(`Failed to process message ${id}:`, error);
+      }
+    }
+
+    results.sort((a, b) => b.similarity - a.similarity);
+    const topResults = results.slice(0, limit);
+
+    console.log(
+      `DatabaseService | Found ${topResults.length} similar messages`
+    );
+
+    return topResults;
   }
 
   getSessionMessages(
