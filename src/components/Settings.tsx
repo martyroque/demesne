@@ -22,6 +22,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import ModelStore from "@/stores/ModelStore";
 import SettingsStore from "@/stores/SettingsStore";
+import { EmbeddingStatus } from "./EmbeddingStatus";
 
 export const Settings: React.FC = () => {
   const modelStore = useStore(ModelStore);
@@ -200,6 +201,11 @@ export const Settings: React.FC = () => {
                 }
               />
             </div>
+          </div>
+
+          <div className="space-y-4 border-t pt-4">
+            <Label className="text-base font-medium">Embeddings</Label>
+            <EmbeddingStatus />
           </div>
         </div>
       </DialogContent>

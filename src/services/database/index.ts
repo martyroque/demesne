@@ -1,6 +1,7 @@
 import { Store } from "nucleux";
 import initSqlJs, { type Database as SqlJsDatabase } from "sql.js";
 
+import EmbeddingService from "../embeddings";
 import type { Message } from "../ollama";
 
 interface MessageWithTimestamp extends Message {
@@ -16,6 +17,18 @@ interface ChatSession {
 class DatabaseService extends Store {
   private db: SqlJsDatabase | null = null;
   public isReady = this.atom(false);
+
+  private embeddingService = this.inject(EmbeddingService);
+  private embeddingQueue: Set<number> = new Set();
+  public embeddingProgress = this.atom<{
+    total: number;
+    completed: number;
+    inProgress: boolean;
+  }>({
+    total: 0,
+    completed: 0,
+    inProgress: false,
+  });
 
   constructor() {
     super();
@@ -64,6 +77,7 @@ class DatabaseService extends Store {
         role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
         content TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
+        embedding TEXT,
         FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
       );
     `);
@@ -76,6 +90,9 @@ class DatabaseService extends Store {
     );
     this.db.run(
       `CREATE INDEX IF NOT EXISTS idx_sessions_active ON chat_sessions(last_active_at DESC);`
+    );
+    this.db.run(
+      `CREATE INDEX IF NOT EXISTS idx_messages_embedded ON chat_messages(id) WHERE embedding IS NOT NULL;`
     );
   }
 
@@ -196,8 +213,41 @@ class DatabaseService extends Store {
     const messageId = result[0].values[0][0] as number;
 
     this.persist();
+    this.queueEmbedding(messageId, content);
 
     return messageId;
+  }
+
+  private async queueEmbedding(messageId: number, content: string) {
+    if (this.embeddingQueue.has(messageId)) return;
+
+    this.embeddingQueue.add(messageId);
+
+    try {
+      const embedding = await this.embeddingService.embedText(content);
+      this.updateEmbedding(messageId, embedding);
+      console.log(`DatabaseService | Embedded message ${messageId}`);
+    } catch (error) {
+      console.error(
+        `DatabaseService | Failed to embed message ${messageId}:`,
+        error
+      );
+    } finally {
+      this.embeddingQueue.delete(messageId);
+    }
+  }
+
+  private updateEmbedding(messageId: number, embedding: number[]) {
+    if (!this.db) return;
+
+    const embeddingJson = JSON.stringify(embedding);
+
+    this.db.run(`UPDATE chat_messages SET embedding = ? WHERE id = ?`, [
+      embeddingJson,
+      messageId,
+    ]);
+
+    this.persist();
   }
 
   getSessionMessages(
@@ -280,6 +330,100 @@ class DatabaseService extends Store {
     return result[0].values[0][0] as number;
   }
 
+  getUnembeddedMessages(): Array<{ id: number; content: string }> {
+    if (!this.db) return [];
+
+    const result = this.db.exec(
+      `SELECT id, content FROM chat_messages WHERE embedding IS NULL ORDER BY timestamp ASC`
+    );
+
+    if (result.length === 0) return [];
+
+    return result[0].values.map((row) => ({
+      id: row[0] as number,
+      content: row[1] as string,
+    }));
+  }
+
+  getEmbeddedMessageCount(): number {
+    if (!this.db) return 0;
+
+    const result = this.db.exec(
+      `SELECT COUNT(*) as count FROM chat_messages WHERE embedding IS NOT NULL`
+    );
+
+    if (result.length === 0 || result[0].values.length === 0) {
+      return 0;
+    }
+
+    return result[0].values[0][0] as number;
+  }
+
+  async backfillEmbeddings(
+    onProgress?: (completed: number, total: number) => void
+  ) {
+    const unembedded = this.getUnembeddedMessages();
+
+    if (unembedded.length === 0) {
+      console.log("DatabaseService | All messages already embedded");
+      return;
+    }
+
+    console.log(
+      `DatabaseService | Backfilling ${unembedded.length} messages...`
+    );
+
+    this.embeddingProgress.value = {
+      total: unembedded.length,
+      completed: 0,
+      inProgress: true,
+    };
+
+    const batchSize = 10;
+
+    for (let i = 0; i < unembedded.length; i += batchSize) {
+      const batch = unembedded.slice(i, i + batchSize);
+
+      try {
+        const embeddings = await this.embeddingService.embedBatch(
+          batch.map((msg) => msg.content)
+        );
+
+        batch.forEach((msg, idx) => {
+          this.updateEmbedding(msg.id, embeddings[idx]);
+        });
+
+        const completed = Math.min(i + batchSize, unembedded.length);
+        this.embeddingProgress.value = {
+          total: unembedded.length,
+          completed,
+          inProgress: true,
+        };
+
+        if (onProgress) {
+          onProgress(completed, unembedded.length);
+        }
+
+        console.log(
+          `DatabaseService | Progress: ${completed}/${unembedded.length}`
+        );
+      } catch (error) {
+        console.error(
+          `DatabaseService | Batch ${i}-${i + batchSize} failed:`,
+          error
+        );
+      }
+    }
+
+    this.embeddingProgress.value = {
+      total: unembedded.length,
+      completed: unembedded.length,
+      inProgress: false,
+    };
+
+    console.log("DatabaseService | Backfill complete");
+  }
+
   vacuum(): void {
     if (!this.db) return;
 
@@ -298,10 +442,11 @@ class DatabaseService extends Store {
   getDatabaseStats(): {
     sessions: number;
     messages: number;
+    embeddedMessages: number;
     dbSizeKB: number;
   } {
     if (!this.db) {
-      return { sessions: 0, messages: 0, dbSizeKB: 0 };
+      return { sessions: 0, messages: 0, embeddedMessages: 0, dbSizeKB: 0 };
     }
 
     const sessionsResult = this.db.exec(
@@ -309,6 +454,9 @@ class DatabaseService extends Store {
     );
     const messagesResult = this.db.exec(
       `SELECT COUNT(*) as count FROM chat_messages`
+    );
+    const embeddedResult = this.db.exec(
+      `SELECT COUNT(*) as count FROM chat_messages WHERE embedding IS NOT NULL`
     );
 
     const sessions =
@@ -319,6 +467,10 @@ class DatabaseService extends Store {
       messagesResult.length > 0
         ? (messagesResult[0].values[0][0] as number)
         : 0;
+    const embeddedMessages =
+      embeddedResult.length > 0
+        ? (embeddedResult[0].values[0][0] as number)
+        : 0;
 
     const savedDb = localStorage.getItem("demesne-db");
     const dbSizeKB = savedDb ? Math.round(savedDb.length / 1024) : 0;
@@ -326,6 +478,7 @@ class DatabaseService extends Store {
     return {
       sessions,
       messages,
+      embeddedMessages,
       dbSizeKB,
     };
   }

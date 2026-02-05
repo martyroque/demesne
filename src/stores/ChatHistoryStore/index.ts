@@ -93,6 +93,15 @@ class ChatHistoryStore extends Store {
     );
   });
 
+  public embeddingProgress = this.deriveAtom(
+    [this.dbService.embeddingProgress],
+    (progress) => progress
+  );
+
+  public stats = this.deriveAtom([this.dbVersion], () => {
+    return this.dbService.getDatabaseStats();
+  });
+
   constructor() {
     super();
 
@@ -106,6 +115,10 @@ class ChatHistoryStore extends Store {
             this.vacuum();
           }
         }, 10000);
+
+        setTimeout(() => {
+          this.checkAndBackfillEmbeddings();
+        }, 15000);
       }
     });
   }
@@ -139,6 +152,27 @@ class ChatHistoryStore extends Store {
       }
 
       this.dbVersion.value += 1;
+    }
+  }
+
+  private async checkAndBackfillEmbeddings() {
+    const stats = this.dbService.getDatabaseStats();
+    const unembeddedCount = stats.messages - stats.embeddedMessages;
+
+    if (unembeddedCount > 0) {
+      console.log(
+        `ChatHistoryStore | Found ${unembeddedCount} unembedded messages, starting backfill...`
+      );
+
+      await this.dbService.backfillEmbeddings((completed, total) => {
+        console.log(
+          `ChatHistoryStore | Embedding progress: ${completed}/${total}`
+        );
+      });
+
+      console.log("ChatHistoryStore | Backfill complete");
+    } else {
+      console.log("ChatHistoryStore | All messages already embedded");
     }
   }
 
@@ -222,6 +256,10 @@ class ChatHistoryStore extends Store {
     }
 
     this.dbVersion.value += 1;
+  }
+
+  async triggerEmbeddingBackfill(): Promise<void> {
+    await this.checkAndBackfillEmbeddings();
   }
 }
 
