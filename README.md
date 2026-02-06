@@ -15,6 +15,7 @@ This project is under active development. Core features are functional but the i
 - **Voice Control**: Speak commands naturally to control your smart home
 - **Wake Word Detection**: Hands-free activation with "Hey Jarvis" or custom wake words
 - **Voice Responses**: Zion speaks back using local text-to-speech
+- **Conversation Memory**: Remembers past conversations and uses context to provide informed responses
 - **Local AI**: Uses Ollama for on-device language processing (no data leaves your network)
 - **Home Assistant Integration**: Works with existing Home Assistant installations
 - **Privacy-First**: 100% local operation - your voice and commands stay on your hardware
@@ -41,6 +42,9 @@ This project is under active development. Core features are functional but the i
 ```bash
 # Install dependencies
 npm install
+
+# Pull the embedding model for conversation memory
+ollama pull nomic-embed-text
 
 # Create environment configuration
 # Create a .env.local file in the project root with:
@@ -84,6 +88,14 @@ Say **"Hey Jarvis"** to activate, then speak your command:
 - "Turn everything off"
 - "What's the temperature?"
 
+### Conversation Memory
+
+Zion remembers past conversations and can reference them:
+
+- "What did we discuss about smart home setup?"
+- "How do I fix that issue we talked about yesterday?"
+- Use the search button to find specific past conversations
+
 ## What's Next?
 
 Demesne is designed as the foundation for something bigger - a self-sovereign node that can optionally connect to a cooperative AI infrastructure network. Stay tuned.
@@ -96,6 +108,8 @@ Demesne is designed as the foundation for something bigger - a self-sovereign no
 - **Wake Word Detection**: OpenWakeWord (via Wyoming protocol) + Wyoming-to-HTTP bridge
 - **Text-to-Speech**: Local Piper TTS (via Wyoming protocol) + Wyoming-to-HTTP bridge
 - **LLM**: Ollama (llama3.1:8b, llama3.2:3b)
+- **Embeddings**: Ollama (nomic-embed-text) for semantic search
+- **Memory**: SQLite + vector similarity search for conversation history
 - **Smart Home**: Home Assistant REST API
 - **Protocol**: Zigbee (fully local, no internet required)
 
