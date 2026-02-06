@@ -111,23 +111,6 @@ class ChatStore extends Store {
     return fitted;
   }
 
-  private formatContextSection(context: ContextChunk[]): string {
-    if (context.length === 0) return "";
-
-    const contextLines = context.map((chunk, idx) => {
-      const date = new Date(chunk.timestamp).toLocaleString();
-      const preview =
-        chunk.content.length > 200
-          ? chunk.content.slice(0, 200) + "..."
-          : chunk.content;
-      const similarity = (chunk.similarity * 100).toFixed(0);
-
-      return `${idx + 1}. [${chunk.role}, ${date}, ${similarity}% relevant]\n   ${preview}`;
-    });
-
-    return `\n\n## Relevant Context from Past Conversations\n\n${contextLines.join("\n\n")}\n\nUse this context naturally when relevant to the current conversation. Don't explicitly mention "I found in your history" - just reference the information as if you remember it.\n`;
-  }
-
   async speakResponse(text: string) {
     const autoPlayTTS = this.settingsStore.autoPlayTTS.value;
     if (autoPlayTTS) {
@@ -183,7 +166,8 @@ class ChatStore extends Store {
 
         this.lastContextUsed.value = fittedContext;
 
-        const contextSection = this.formatContextSection(fittedContext);
+        const contextSection =
+          this.contextRetrievalService.formatContextForPrompt(fittedContext);
         const messages = this.chatHistoryStore.messages.value;
         const recentMessages = messages.slice(-10);
         const systemPrompt = BASE_SYSTEM_PROMPT + contextSection;

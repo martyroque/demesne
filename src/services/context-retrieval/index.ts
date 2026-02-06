@@ -179,10 +179,10 @@ class ContextRetrievalService extends Store {
           : chunk.content;
       const similarity = (chunk.similarity * 100).toFixed(0);
 
-      return `${idx + 1}. [${chunk.role}, ${date}, ${similarity}% match]\n   ${preview}`;
+      return `${idx + 1}. [${chunk.role}, ${date}, ${similarity}% relevant]\n   ${preview}`;
     });
 
-    return `\n## Relevant Context from Past Conversations\n${contextLines.join("\n\n")}\n`;
+    return `\n\n## Relevant Context from Past Conversations\n\n${contextLines.join("\n\n")}\n\nUse this context naturally when relevant to the current conversation. Don't explicitly mention "I found in your history" - just reference the information as if you remember it.\n`;
   }
 }
 
