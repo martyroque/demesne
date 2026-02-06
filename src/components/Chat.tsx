@@ -3,17 +3,17 @@ import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { ContextSources } from "@/components/ContextSources";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { VoiceInput } from "@/components/VoiceInput";
 import { cn } from "@/lib/utils";
 import PiperService from "@/services/piper";
 import WakeWordService, { type WakeWordDetection } from "@/services/wake-word";
 import ChatHistoryStore from "@/stores/ChatHistoryStore";
 import ChatStore from "@/stores/ChatStore";
 import SettingsStore from "@/stores/SettingsStore";
-
-import { VoiceInput } from "./VoiceInput";
-import { Textarea } from "./ui/textarea";
 
 const safeMessageContent = (content: unknown): string => {
   if (typeof content === "string") {
@@ -41,6 +41,8 @@ export const Chat: React.FC = () => {
   const wakeWordPhrase = useValue(settingsStore.wakeWordPhrase);
   const isSpeaking = useValue(piperService.isSpeaking);
   const isWakeWordListening = useValue(wakeWordService.isListening);
+  const lastContextUsed = useValue(chatStore.lastContextUsed);
+  const contextRetrievalTime = useValue(chatStore.contextRetrievalTime);
 
   const [input, setInput] = useState("");
   const [wakeWordDetected, setWakeWordDetected] = useState(false);
@@ -56,16 +58,13 @@ export const Chat: React.FC = () => {
     console.log("Wake word detected:", detection);
     setWakeWordDetected(true);
 
-    // Brief visual feedback
     setTimeout(() => {
       setWakeWordDetected(false);
     }, 2000);
 
-    // Automatically trigger voice input
     setIsVoiceInputActive(true);
   };
 
-  // Handle wake word detection on/off
   useEffect(() => {
     if (wakeWordEnabled && !isVoiceInputActive) {
       wakeWordService.startDetection(handleWakeWordDetection);
@@ -143,6 +142,15 @@ export const Chat: React.FC = () => {
                     {safeMessageContent(msg.content)}
                   </ReactMarkdown>
                 </div>
+
+                {msg.role === "assistant" &&
+                  idx === messages.length - 1 &&
+                  lastContextUsed.length > 0 && (
+                    <ContextSources
+                      sources={lastContextUsed}
+                      className="mt-3"
+                    />
+                  )}
               </div>
             ))}
 
@@ -155,6 +163,17 @@ export const Chat: React.FC = () => {
                   </ReactMarkdown>
                   <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-primary" />
                 </div>
+
+                {lastContextUsed.length > 0 && (
+                  <div className="mt-3">
+                    <ContextSources sources={lastContextUsed} />
+                    {contextRetrievalTime > 0 && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        Context retrieved in {contextRetrievalTime}ms
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

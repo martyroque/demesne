@@ -140,6 +140,14 @@ class OllamaService extends Store {
     }
   }
 
+  async embed(model: string, prompt: string): Promise<number[]> {
+    const response = await this.ollamaClient.post("/api/embeddings", {
+      model,
+      prompt,
+    });
+    return (response.data.embedding ?? []) as number[];
+  }
+
   async listModels() {
     const response = await this.ollamaClient.get("/api/tags");
     return response.data.models;

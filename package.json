@@ -33,6 +33,7 @@
     "react-speech-recognition": "^4.0.1",
     "regenerator-runtime": "^0.14.1",
     "remark-gfm": "^4.0.1",
+    "sql.js": "^1.13.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.18"
   },
@@ -43,6 +44,7 @@
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@types/react-speech-recognition": "^3.9.6",
+    "@types/sql.js": "^1.4.9",
     "@vitejs/plugin-react": "^5.1.1",
     "baseline-browser-mapping": "^2.9.18",
     "eslint": "^9.39.1",
