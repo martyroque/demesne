@@ -53,7 +53,7 @@ class ContextRetrievalService extends Store {
 
       const results = await this.dbService.searchSimilar(
         queryEmbedding,
-        maxResults,
+        maxResults * 2,
         sessionId,
         minSimilarity
       );

@@ -1,5 +1,8 @@
 import { Store } from "nucleux";
 
+import ContextRetrievalService, {
+  type ContextChunk,
+} from "@/services/context-retrieval";
 import HomeAssistantService from "@/services/home-assistant";
 import IntentClassifierService from "@/services/intent-classifier";
 import OllamaService, { type Message } from "@/services/ollama";
@@ -11,10 +14,24 @@ import SettingsStore from "../SettingsStore";
 
 const RECENT_COUNT = 12;
 
+const BASE_SYSTEM_PROMPT = `You are Zion, a helpful AI assistant integrated into a smart home system.
+
+You have access to the user's conversation history and can reference past discussions when relevant. When using context from past conversations, integrate it naturally without explicitly mentioning "I found in your history" - just use the information as if you remember it.
+
+Key capabilities:
+- Smart home control via Home Assistant
+- General knowledge and assistance
+- Memory of past conversations
+- Natural, conversational responses
+
+Current date: ${new Date().toLocaleDateString()}`;
+
 class ChatStore extends Store {
   public isLoading = this.atom(false);
   public isStreaming = this.atom(false);
   public streamingMessage = this.atom("");
+  public lastContextUsed = this.atom<ContextChunk[]>([]);
+  public contextRetrievalTime = this.atom(0);
 
   private settingsStore = this.inject(SettingsStore);
   private chatHistoryStore = this.inject(ChatHistoryStore);
@@ -24,6 +41,7 @@ class ChatStore extends Store {
   private ollamaService = this.inject(OllamaService);
   private intentClassifierService = this.inject(IntentClassifierService);
   private homeAssistantService = this.inject(HomeAssistantService);
+  private contextRetrievalService = this.inject(ContextRetrievalService);
 
   private trimMessages(messages: Message[], maxTokens = 7000): Message[] {
     if (messages.length <= RECENT_COUNT) {
@@ -38,7 +56,6 @@ class ChatStore extends Store {
     usedTokens += recentMessages.reduce((sum, m) => sum + estimateTokens(m), 0);
 
     if (usedTokens >= maxTokens) {
-      // Even recent messages exceed limit, just return them
       console.warn(`Context tight: ${usedTokens} tokens`);
       return recentMessages;
     }
@@ -51,7 +68,6 @@ class ChatStore extends Store {
 
       if (usedTokens + tokens > maxTokens) break;
 
-      // Prioritize user messages and substantial responses
       if (msg.role === "user" || msg.content.length > 200) {
         importantMiddle.unshift(msg);
         usedTokens += tokens;
@@ -70,6 +86,48 @@ class ChatStore extends Store {
     return [firstMessage, ...importantMiddle, ...recentMessages];
   }
 
+  private trimContextToFit(
+    context: ContextChunk[],
+    maxTokens: number = 2000
+  ): ContextChunk[] {
+    let totalTokens = 0;
+    const fitted: ContextChunk[] = [];
+
+    for (const chunk of context) {
+      const chunkTokens = Math.ceil(chunk.content.length / 4);
+
+      if (totalTokens + chunkTokens > maxTokens) break;
+
+      fitted.push(chunk);
+      totalTokens += chunkTokens;
+    }
+
+    if (fitted.length < context.length) {
+      console.log(
+        `Trimmed context: ${fitted.length}/${context.length} chunks (${totalTokens}/${maxTokens} tokens)`
+      );
+    }
+
+    return fitted;
+  }
+
+  private formatContextSection(context: ContextChunk[]): string {
+    if (context.length === 0) return "";
+
+    const contextLines = context.map((chunk, idx) => {
+      const date = new Date(chunk.timestamp).toLocaleString();
+      const preview =
+        chunk.content.length > 200
+          ? chunk.content.slice(0, 200) + "..."
+          : chunk.content;
+      const similarity = (chunk.similarity * 100).toFixed(0);
+
+      return `${idx + 1}. [${chunk.role}, ${date}, ${similarity}% relevant]\n   ${preview}`;
+    });
+
+    return `\n\n## Relevant Context from Past Conversations\n\n${contextLines.join("\n\n")}\n\nUse this context naturally when relevant to the current conversation. Don't explicitly mention "I found in your history" - just reference the information as if you remember it.\n`;
+  }
+
   async speakResponse(text: string) {
     const autoPlayTTS = this.settingsStore.autoPlayTTS.value;
     if (autoPlayTTS) {
@@ -84,6 +142,8 @@ class ChatStore extends Store {
     this.chatHistoryStore.addMessage(userMessage);
 
     this.isLoading.value = true;
+    this.lastContextUsed.value = [];
+    this.contextRetrievalTime.value = 0;
 
     try {
       const intentType =
@@ -101,19 +161,63 @@ class ChatStore extends Store {
         this.isLoading.value = false;
         await this.speakResponse(result);
       } else {
+        const startTime = performance.now();
+        const sessionId = this.chatHistoryStore.currentSessionId.value;
+
+        const relevantContext =
+          await this.contextRetrievalService.retrieveRelevantContext(message, {
+            maxResults: 5,
+            sessionId: sessionId || undefined,
+            minSimilarity: 0.5,
+            excludeRecent: 60,
+          });
+
+        const contextTime = Math.round(performance.now() - startTime);
+        this.contextRetrievalTime.value = contextTime;
+
+        console.log(
+          `ChatStore | Retrieved ${relevantContext.length} context chunks in ${contextTime}ms`
+        );
+
+        const fittedContext = this.trimContextToFit(relevantContext, 2000);
+
+        this.lastContextUsed.value = fittedContext;
+
+        const contextSection = this.formatContextSection(fittedContext);
+        const messages = this.chatHistoryStore.messages.value;
+        const recentMessages = messages.slice(-10);
+        const systemPrompt = BASE_SYSTEM_PROMPT + contextSection;
+
+        const fullMessages: Message[] = [
+          { role: "system", content: systemPrompt },
+          ...recentMessages,
+          userMessage,
+        ];
+
+        const totalTokens = fullMessages.reduce(
+          (sum, msg) => sum + Math.ceil(msg.content.length / 4),
+          0
+        );
+
+        console.log(`ChatStore | Total tokens: ${totalTokens}`);
+
+        if (totalTokens > 7000) {
+          console.warn("ChatStore | Token budget exceeded, trimming messages");
+          const trimmed = this.trimMessages(fullMessages, 7000);
+          fullMessages.length = 0;
+          fullMessages.push(...trimmed);
+        }
+
         this.isStreaming.value = true;
         this.streamingMessage.value = "";
 
         const activeModel = this.modelStore.activeModel.value;
-        const messages = this.chatHistoryStore.messages.value;
-        const trimmedMessages = this.trimMessages([...messages, userMessage]);
-
         let fullResponse = "";
         let firstChunk = true;
 
         await this.ollamaService.chatStream(
           activeModel,
-          trimmedMessages,
+          fullMessages,
           (chunk) => {
             if (firstChunk) {
               this.isLoading.value = false;
