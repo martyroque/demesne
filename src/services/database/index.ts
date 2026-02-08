@@ -5,6 +5,7 @@ import EmbeddingService from "../embeddings";
 import type { Message } from "../ollama";
 
 interface MessageWithTimestamp extends Message {
+  id: number;
   timestamp: number;
 }
 
@@ -16,6 +17,7 @@ interface ChatSession {
 
 interface SearchResult {
   id: number;
+  sessionId: string;
   role: string;
   content: string;
   timestamp: number;
@@ -38,6 +40,7 @@ class DatabaseService extends Store {
     completed: 0,
     inProgress: false,
   });
+  public embeddingVersion = this.atom(0);
 
   constructor() {
     super();
@@ -246,15 +249,23 @@ class DatabaseService extends Store {
 
     this.createSession(sessionId);
 
-    this.db.run(
-      `INSERT INTO chat_messages (session_id, role, content, timestamp) VALUES (?, ?, ?, ?)`,
+    const result = this.db.exec(
+      `INSERT INTO chat_messages (session_id, role, content, timestamp) 
+      VALUES (?, ?, ?, ?)
+      RETURNING id`,
       [sessionId, role, content, timestamp ?? Date.now()]
     );
 
     this.updateSessionActivity(sessionId);
 
-    const result = this.db.exec("SELECT last_insert_rowid()");
     const messageId = result[0].values[0][0] as number;
+
+    if (!messageId) {
+      console.error("DatabaseService | Failed to get message ID after insert");
+      return 0;
+    }
+
+    console.log(`DatabaseService | Saved message with ID ${messageId}`);
 
     this.persist();
     this.queueEmbedding(messageId, content);
@@ -271,6 +282,7 @@ class DatabaseService extends Store {
       const embedding = await this.embeddingService.embedText(content);
       this.updateEmbedding(messageId, embedding);
       console.log(`DatabaseService | Embedded message ${messageId}`);
+      this.embeddingVersion.value += 1;
     } catch (error) {
       console.error(
         `DatabaseService | Failed to embed message ${messageId}:`,
@@ -307,10 +319,10 @@ class DatabaseService extends Store {
     );
 
     const sql = sessionId
-      ? `SELECT id, role, content, timestamp, embedding 
+      ? `SELECT id, session_id, role, content, timestamp, embedding 
          FROM chat_messages 
          WHERE session_id = ? AND embedding IS NOT NULL`
-      : `SELECT id, role, content, timestamp, embedding 
+      : `SELECT id, session_id, role, content, timestamp, embedding 
          FROM chat_messages 
          WHERE embedding IS NOT NULL`;
 
@@ -326,10 +338,11 @@ class DatabaseService extends Store {
 
     for (const row of result[0].values) {
       const id = row[0] as number;
-      const role = row[1] as string;
-      const content = row[2] as string;
-      const timestamp = row[3] as number;
-      const embeddingBlob = row[4] as Uint8Array;
+      const sid = row[1] as string;
+      const role = row[2] as string;
+      const content = row[3] as string;
+      const timestamp = row[4] as number;
+      const embeddingBlob = row[5] as Uint8Array;
 
       try {
         const messageEmbedding = this.blobToEmbedding(embeddingBlob);
@@ -341,6 +354,7 @@ class DatabaseService extends Store {
         if (similarity >= minSimilarity) {
           results.push({
             id,
+            sessionId: sid,
             role,
             content,
             timestamp,
@@ -370,7 +384,7 @@ class DatabaseService extends Store {
     if (!this.db) return [];
 
     const sql = `
-      SELECT role, content, timestamp
+      SELECT id, role, content, timestamp
       FROM chat_messages
       WHERE session_id = ?
       ORDER BY timestamp ASC
@@ -382,38 +396,11 @@ class DatabaseService extends Store {
     if (result.length === 0) return [];
 
     return result[0].values.map((row) => ({
-      role: row[0] as "user" | "assistant" | "system",
-      content: row[1] as string,
-      timestamp: row[2] as number,
+      id: row[0] as number,
+      role: row[1] as "user" | "assistant" | "system",
+      content: row[2] as string,
+      timestamp: row[3] as number,
     }));
-  }
-
-  getRecentMessages(
-    sessionId: string,
-    count: number = 10
-  ): MessageWithTimestamp[] {
-    if (!this.db) return [];
-
-    const result = this.db.exec(
-      `
-      SELECT role, content, timestamp
-      FROM chat_messages
-      WHERE session_id = ?
-      ORDER BY timestamp DESC
-      LIMIT ?
-    `,
-      [sessionId, count]
-    );
-
-    if (result.length === 0) return [];
-
-    const messages = result[0].values.map((row) => ({
-      role: row[0] as "user" | "assistant" | "system",
-      content: row[1] as string,
-      timestamp: row[2] as number,
-    }));
-
-    return messages.reverse();
   }
 
   getMessageCount(sessionId: string): number {
