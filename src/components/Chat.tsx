@@ -111,7 +111,8 @@ export const Chat: React.FC = () => {
           <div className="flex-1 space-y-4 overflow-y-auto p-4">
             {messages.map((msg, idx) => (
               <div
-                key={idx}
+                key={msg.id}
+                id={`message-${msg.id}`}
                 className={cn(
                   "rounded-lg p-4",
                   msg.role === "user" ? "bg-primary/10" : "bg-muted"

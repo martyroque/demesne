@@ -9,6 +9,7 @@ export interface ContextChunk {
   timestamp: number;
   similarity: number;
   messageId: number;
+  sessionId: string;
 }
 
 export interface RetrievalOptions {
@@ -69,6 +70,7 @@ class ContextRetrievalService extends Store {
         timestamp: result.timestamp,
         similarity: result.similarity,
         messageId: result.id,
+        sessionId: result.sessionId,
       }));
 
       const elapsedTime = Math.round(performance.now() - startTime);

@@ -121,6 +121,10 @@ class ChatHistoryStore extends Store {
         }, 15000);
       }
     });
+
+    this.watchAtom(this.dbService.embeddingVersion, () => {
+      this.dbVersion.value += 1;
+    });
   }
 
   private shouldVacuum(): boolean {
@@ -171,6 +175,8 @@ class ChatHistoryStore extends Store {
       });
 
       console.log("ChatHistoryStore | Backfill complete");
+
+      this.dbVersion.value += 1;
     } else {
       console.log("ChatHistoryStore | All messages already embedded");
     }

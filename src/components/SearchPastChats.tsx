@@ -17,10 +17,12 @@ import { Separator } from "@/components/ui/separator";
 import ContextRetrievalService, {
   type ContextChunk,
 } from "@/services/context-retrieval";
+import ChatHistoryStore from "@/stores/ChatHistoryStore";
 import { formatDistanceToNow } from "date-fns";
 
 export const SearchPastChats: React.FC = () => {
   const contextRetrieval = useStore(ContextRetrievalService);
+  const chatHistoryStore = useStore(ChatHistoryStore);
 
   const isSearching = useValue(contextRetrieval.isSearching);
   const lastSearchTime = useValue(contextRetrieval.lastSearchTime);
@@ -53,6 +55,23 @@ export const SearchPastChats: React.FC = () => {
       e.preventDefault();
       handleSearch();
     }
+  };
+
+  const handleResultClick = (result: ContextChunk) => {
+    chatHistoryStore.setActiveSession(result.sessionId);
+
+    setTimeout(() => {
+      const messageElement = document.getElementById(
+        `message-${result.messageId}`
+      );
+      if (messageElement) {
+        messageElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 100);
+
+    setQuery("");
+    setResults([]);
+    setIsOpen(false);
   };
 
   const formatTimestamp = (timestamp: number): string => {
@@ -157,7 +176,11 @@ export const SearchPastChats: React.FC = () => {
 
             <div className="space-y-3">
               {results.map((chunk, idx) => (
-                <Card key={`${chunk.messageId}-${idx}`} className="p-4">
+                <Card
+                  key={`${chunk.messageId}-${idx}`}
+                  className="p-4 cursor-pointer"
+                  onClick={() => handleResultClick(chunk)}
+                >
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <Badge
