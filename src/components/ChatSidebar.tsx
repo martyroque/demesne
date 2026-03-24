@@ -1,13 +1,15 @@
 import { formatDistanceToNow } from "date-fns";
 import { Trash2 } from "lucide-react";
 import { useStore, useValue } from "nucleux";
-import React from "react";
+import React, { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import HomeAssistantService from "@/services/home-assistant";
-import ChatHistoryStore from "@/stores/ChatHistoryStore";
+import ChatHistoryStore, {
+  HOME_CONTROL_SESSION_ID,
+} from "@/stores/ChatHistoryStore";
 
 export const ChatSidebar: React.FC = () => {
   const chatHistoryStore = useStore(ChatHistoryStore);
@@ -16,10 +18,26 @@ export const ChatSidebar: React.FC = () => {
   const sortedSessions = useValue(chatHistoryStore.sortedSessions);
   const sessionPreviews = useValue(chatHistoryStore.sessionPreviews);
   const currentSessionId = useValue(chatHistoryStore.currentSessionId);
+  const homeControlSession = useValue(chatHistoryStore.homeControlSession);
+
+  const [showCommandLog, setShowCommandLog] = useState(false);
 
   const handleNewChat = () => {
     chatHistoryStore.createNewSession();
     homeAssistantService.resetConversation();
+  };
+
+  const handleCommandLogToggle = () => {
+    if (!showCommandLog) {
+      setShowCommandLog(true);
+      chatHistoryStore.setActiveSession(HOME_CONTROL_SESSION_ID);
+    } else {
+      setShowCommandLog(false);
+      const firstSession = sortedSessions[0];
+      if (firstSession) {
+        chatHistoryStore.setActiveSession(firstSession.id);
+      }
+    }
   };
 
   const handleSessionClick = (sessionId: string) => {
@@ -60,7 +78,19 @@ export const ChatSidebar: React.FC = () => {
       </div>
 
       <ScrollArea className="flex-1 p-2.5">
-        {sortedSessions.length === 0 ? (
+        {showCommandLog ? (
+          <div className="space-y-2">
+            <button
+              onClick={handleCommandLogToggle}
+              className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              ← Chats
+            </button>
+            <div className="px-2 py-1 text-xs text-muted-foreground">
+              Home control command history
+            </div>
+          </div>
+        ) : sortedSessions.length === 0 ? (
           <div className="p-5 text-center text-sm text-muted-foreground">
             No chats yet
           </div>
@@ -114,8 +144,20 @@ export const ChatSidebar: React.FC = () => {
         )}
       </ScrollArea>
 
-      <div className="border-t border-border p-4 text-xs text-muted-foreground">
-        {sortedSessions.length} chat{sortedSessions.length !== 1 ? "s" : ""}
+      <div className="flex items-center justify-between border-t border-border p-4 text-xs text-muted-foreground">
+        <span>
+          {sortedSessions.length} chat{sortedSessions.length !== 1 ? "s" : ""}
+        </span>
+        <button
+          onClick={handleCommandLogToggle}
+          className={cn(
+            "flex items-center gap-1 rounded px-2 py-1 transition-colors hover:text-foreground",
+            showCommandLog ? "text-amber-500" : "text-muted-foreground"
+          )}
+          title={`Command log (${homeControlSession?.messages.length ?? 0} entries)`}
+        >
+          <span>Command Log</span>
+        </button>
       </div>
     </div>
   );

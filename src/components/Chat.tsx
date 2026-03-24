@@ -43,6 +43,7 @@ export const Chat: React.FC = () => {
   const isWakeWordListening = useValue(wakeWordService.isListening);
   const lastContextUsed = useValue(chatStore.lastContextUsed);
   const contextRetrievalTime = useValue(chatStore.contextRetrievalTime);
+  const homeControlToast = useValue(chatStore.homeControlToast);
 
   const [input, setInput] = useState("");
   const [wakeWordDetected, setWakeWordDetected] = useState(false);
@@ -106,6 +107,17 @@ export const Chat: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-5 overflow-hidden p-5">
+      {homeControlToast && (
+        <div className="fixed bottom-6 right-6 z-50 flex max-w-sm items-start gap-3 rounded-lg border border-amber-500/50 bg-card px-4 py-3 shadow-lg">
+          <span className="mt-0.5 shrink-0 text-amber-500">⚡</span>
+          <div>
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-500">
+              Home Control
+            </div>
+            <div className="text-sm text-foreground">{homeControlToast.message}</div>
+          </div>
+        </div>
+      )}
       <div className="flex-1 overflow-hidden rounded-lg border bg-card">
         <div className="flex h-full flex-col">
           <div className="flex-1 space-y-4 overflow-y-auto p-4">

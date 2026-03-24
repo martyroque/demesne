@@ -20,8 +20,8 @@ class MediaRecorderService extends Store {
   private mediaStream: MediaStream | null = null;
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
-  private mediaTimer: number | null = null;
-  private silenceTimer: number | null = null;
+  private mediaTimer: NodeJS.Timeout | null = null;
+  private silenceTimer: NodeJS.Timeout | null = null;
   private lastAudioTime = 0;
 
   private whisperService = this.inject(WhisperService);
