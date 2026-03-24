@@ -3,6 +3,8 @@ import { Store } from "nucleux";
 import DatabaseService from "../../services/database";
 import type { Message } from "../../services/ollama";
 
+export const HOME_CONTROL_SESSION_ID = "home-control";
+
 interface MessageWithTimestamp extends Message {
   timestamp: number;
 }
@@ -67,7 +69,13 @@ class ChatHistoryStore extends Store {
   );
 
   public sortedSessions = this.deriveAtom([this.sessions], (sessions) => {
-    return [...sessions].sort((a, b) => b.lastActiveAt - a.lastActiveAt);
+    return [...sessions]
+      .filter((s) => s.id !== HOME_CONTROL_SESSION_ID)
+      .sort((a, b) => b.lastActiveAt - a.lastActiveAt);
+  });
+
+  public homeControlSession = this.deriveAtom([this.sessions], (sessions) => {
+    return sessions.find((s) => s.id === HOME_CONTROL_SESSION_ID) || null;
   });
 
   public sessionPreviews = this.deriveAtom([this.sessions], (sessions) => {
@@ -146,13 +154,20 @@ class ChatHistoryStore extends Store {
       return;
     }
 
-    const allSessions = this.dbService.getAllSessions();
+    if (!this.dbService.getSession(HOME_CONTROL_SESSION_ID)) {
+      this.dbService.createSession(HOME_CONTROL_SESSION_ID);
+    }
 
-    if (allSessions.length === 0) {
+    const allSessions = this.dbService.getAllSessions();
+    const visibleSessions = allSessions.filter(
+      (s) => s.id !== HOME_CONTROL_SESSION_ID
+    );
+
+    if (visibleSessions.length === 0) {
       this.createNewSession();
     } else {
       if (!this.currentSessionId.value) {
-        this.currentSessionId.value = allSessions[0].id;
+        this.currentSessionId.value = visibleSessions[0].id;
       }
 
       this.dbVersion.value += 1;
@@ -206,6 +221,23 @@ class ChatHistoryStore extends Store {
     if (!sessionId) {
       console.error("No active session");
       return;
+    }
+
+    const timestamp = Date.now();
+
+    this.dbService.saveMessage(
+      sessionId,
+      message.role,
+      message.content,
+      timestamp
+    );
+
+    this.dbVersion.value += 1;
+  }
+
+  addMessageToSession(sessionId: string, message: Message) {
+    if (!this.dbService.getSession(sessionId)) {
+      this.dbService.createSession(sessionId);
     }
 
     const timestamp = Date.now();

@@ -5,22 +5,24 @@ import OllamaService, { type Message } from "../ollama";
 
 const CLASSIFICATION_PROMPT = `Classify as HOME_CONTROL or GENERAL_CHAT.
 
-HOME_CONTROL requests are ONLY commands that require IMMEDIATE device action:
+HOME_CONTROL requests are ONLY commands that require IMMEDIATE device action OR reading live home sensor/device state:
 - Direct device control: "turn on/off", "set", "dim", "brighten"
 - Status queries about specific devices: "is the bedroom light on?"
 - Temperature/climate control: "make it warmer", "set thermostat to 72"
 - Scene activation: "activate movie mode", "turn on good morning scene"
+- Sensor/state read-back: "what's the temperature?", "what's the humidity?", "is the front door open?", "what's the air quality?"
+  Note: indoor sensor queries go here even if phrased as questions, not commands
 
 HOME_CONTROL requests MUST:
-1. Reference specific devices, rooms, or scenes
-2. Imply immediate action (not planning or discussion)
-3. Use imperative/command language
+1. Reference specific devices, rooms, scenes, or home sensors
+2. Imply immediate action or live data read-back (not planning or discussion)
+3. Use imperative/command language OR ask about current indoor/home sensor state
 
 GENERAL_CHAT includes everything else:
 - Questions about concepts: "how does a smart bulb work?"
 - Planning/hypothetical: "should I buy smart lights?"
 - Troubleshooting/help: "why won't my light connect?"
-- General knowledge: "what's the weather?", "tell me about..."
+- Outdoor/weather queries: "what's the weather?", "will it rain today?" (NOT indoor sensor reads)
 - Small talk: greetings, jokes, opinions
 - Discussions about home automation (not commands)
 - Requests for information without device action
@@ -74,6 +76,27 @@ User: "Can you help me troubleshoot this error?"
 Response: GENERAL_CHAT
 
 User: "Can you help me review the following code?"
+Response: GENERAL_CHAT
+
+User: "What's the current temperature?"
+Response: HOME_CONTROL
+
+User: "What's the humidity in the bedroom?"
+Response: HOME_CONTROL
+
+User: "Is the front door open?"
+Response: HOME_CONTROL
+
+User: "What's the weather outside?"
+Response: GENERAL_CHAT
+
+User: "How warm is it in the living room?"
+Response: HOME_CONTROL
+
+User: "What's the air quality like?"
+Response: HOME_CONTROL
+
+User: "Will it rain tomorrow?"
 Response: GENERAL_CHAT
 
 Now classify this message with ONE WORD ONLY:`;

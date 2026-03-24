@@ -8,7 +8,7 @@ import IntentClassifierService from "@/services/intent-classifier";
 import OllamaService, { type Message } from "@/services/ollama";
 import PiperService from "@/services/piper";
 
-import ChatHistoryStore from "../ChatHistoryStore";
+import ChatHistoryStore, { HOME_CONTROL_SESSION_ID } from "../ChatHistoryStore";
 import ModelStore from "../ModelStore";
 import SettingsStore from "../SettingsStore";
 
@@ -30,6 +30,9 @@ class ChatStore extends Store {
   public isLoading = this.atom(false);
   public isStreaming = this.atom(false);
   public streamingMessage = this.atom("");
+  public homeControlToast = this.atom<{ message: string; id: number } | null>(
+    null
+  );
   public lastContextUsed = this.atom<ContextChunk[]>([]);
   public contextRetrievalTime = this.atom(0);
 
@@ -122,8 +125,6 @@ class ChatStore extends Store {
   async sendMessage(message: string) {
     const userMessage: Message = { role: "user", content: message };
 
-    this.chatHistoryStore.addMessage(userMessage);
-
     this.isLoading.value = true;
     this.lastContextUsed.value = [];
     this.contextRetrievalTime.value = 0;
@@ -133,6 +134,11 @@ class ChatStore extends Store {
         await this.intentClassifierService.classifyIntent(message);
 
       if (intentType === "HOME_CONTROL") {
+        this.chatHistoryStore.addMessageToSession(
+          HOME_CONTROL_SESSION_ID,
+          userMessage
+        );
+
         const result =
           await this.homeAssistantService.processConversation(message);
         const assistantMessage: Message = {
@@ -140,10 +146,28 @@ class ChatStore extends Store {
           content: result,
         };
 
-        this.chatHistoryStore.addMessage(assistantMessage);
+        this.chatHistoryStore.addMessageToSession(
+          HOME_CONTROL_SESSION_ID,
+          assistantMessage
+        );
+
         this.isLoading.value = false;
+
+        const toastId = Date.now();
+        this.homeControlToast.value = { message: result, id: toastId };
+        setTimeout(() => {
+          if (
+            this.homeControlToast.value &&
+            this.homeControlToast.value.id === toastId
+          ) {
+            this.homeControlToast.value = null;
+          }
+        }, 4000);
+
         await this.speakResponse(result);
       } else {
+        this.chatHistoryStore.addMessage(userMessage);
+
         const startTime = performance.now();
         const sessionId = this.chatHistoryStore.currentSessionId.value;
 
