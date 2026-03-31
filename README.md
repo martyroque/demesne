@@ -26,6 +26,7 @@ This project is under active development. Core features are functional but the i
 ### Software
 
 - **Node.js** 18+ and npm
+- **Rust** (for desktop builds) - [Install here](https://rustup.rs)
 - **Docker & Docker Compose** - [Install here](https://docs.docker.com/get-docker/)
 - **Ollama** (local LLM server) - [Install here](https://ollama.ai)
 - **Home Assistant** (running locally) - [Install guide](https://www.home-assistant.io/installation/)
@@ -73,6 +74,21 @@ npm run dev
 
 Visit `http://localhost:5173` and click the microphone to start speaking commands.
 
+## Desktop App (Tauri)
+
+Demesne can also run as a native desktop application. Requires the [Rust toolchain](https://rustup.rs).
+
+```bash
+# Development — opens a native window with hot-reload
+npm run tauri dev
+
+# Production build — outputs a native installer
+npm run tauri build
+# Installers are placed in src-tauri/target/release/bundle/
+```
+
+The web (`npm run dev`) and desktop (`npm run tauri dev`) workflows are independent — both work without any additional configuration.
+
 ## Example Commands
 
 ### Wake Word (Hands-Free)
@@ -103,6 +119,7 @@ Demesne is designed as the foundation for something bigger - a self-sovereign no
 ## Tech Stack
 
 - **Frontend**: React + TypeScript + Vite
+- **Desktop**: Tauri v2 (native wrapper, macOS / Windows / Linux)
 - **State Management**: Nucleux
 - **Voice Recognition**: Local Whisper (via Wyoming protocol) + Wyoming-to-HTTP bridge
 - **Wake Word Detection**: OpenWakeWord (via Wyoming protocol) + Wyoming-to-HTTP bridge
