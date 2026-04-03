@@ -3,6 +3,7 @@ import { Store } from "nucleux";
 
 const HA_URL = import.meta.env.VITE_HA_URL || "http://localhost:8123";
 const HA_TOKEN = import.meta.env.VITE_HA_TOKEN;
+const HA_AGENT_ID = import.meta.env.VITE_HA_AGENT_ID;
 
 export interface HAEntity {
   entity_id: string;
@@ -76,7 +77,7 @@ class HomeAssistantService extends Store {
   async processConversation(
     text: string,
     language: string = "en"
-  ): Promise<string> {
+  ): Promise<{ speech: string; continueConversation: boolean }> {
     try {
       // Check if conversation expired due to inactivity
       const now = Date.now();
@@ -92,6 +93,7 @@ class HomeAssistantService extends Store {
         text: string;
         language: string;
         conversation_id?: string;
+        agent_id?: string;
       } = {
         text,
         language,
@@ -101,13 +103,21 @@ class HomeAssistantService extends Store {
         payload.conversation_id = this.conversationId.value;
       }
 
+      if (HA_AGENT_ID) {
+        payload.agent_id = HA_AGENT_ID;
+      }
+
       const response = await this.haClient.post(
         "/conversation/process",
         payload
       );
 
-      if (response.data.conversation_id) {
+      const continueConversation = response.data.continue_conversation ?? false;
+
+      if (continueConversation && response.data.conversation_id) {
         this.conversationId.value = response.data.conversation_id;
+      } else {
+        this.conversationId.value = null;
       }
 
       this.lastInteractionTime.value = now;
@@ -115,20 +125,29 @@ class HomeAssistantService extends Store {
       const result = response.data.response;
 
       if (result.response_type === "error") {
-        return result.speech.plain.speech || "Sorry, something went wrong.";
+        return {
+          speech: result.speech.plain.speech || "Sorry, something went wrong.",
+          continueConversation,
+        };
       }
 
       if (result.data?.failed && result.data.failed.length > 0) {
         const failedNames = result.data.failed
           .map((f: { name: string }) => f.name)
           .join(", ");
-        return `${result.speech.plain.speech} However, I couldn't control: ${failedNames}`;
+        return {
+          speech: `${result.speech.plain.speech} However, I couldn't control: ${failedNames}`,
+          continueConversation,
+        };
       }
 
-      return result.speech.plain.speech;
+      return { speech: result.speech.plain.speech, continueConversation };
     } catch (error) {
       console.error("HA Conversation API error:", error);
-      return "Sorry, I couldn't process that command.";
+      return {
+        speech: "Sorry, I couldn't process that command.",
+        continueConversation: false,
+      };
     }
   }
 
