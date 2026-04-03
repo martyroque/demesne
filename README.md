@@ -58,6 +58,7 @@ VITE_HA_TOKEN=your_home_assistant_token_here
 VITE_WHISPER_URL=http://localhost:10301
 VITE_PIPER_URL=http://localhost:10201
 VITE_WAKEWORD_URL=http://localhost:10401
+VITE_QDRANT_URL=http://localhost:6333
 ```
 
 Get your Home Assistant token: [Generate a Long-Lived Access Token](https://www.home-assistant.io/docs/authentication/#your-account-profile)
@@ -126,7 +127,7 @@ Demesne is designed as the foundation for something bigger - a self-sovereign no
 - **Text-to-Speech**: Local Piper TTS (via Wyoming protocol) + Wyoming-to-HTTP bridge
 - **LLM**: Ollama (llama3.1:8b, llama3.2:3b)
 - **Embeddings**: Ollama (nomic-embed-text) for semantic search
-- **Memory**: SQLite + vector similarity search for conversation history
+- **Memory**: SQLite (conversation storage) + Qdrant (HNSW vector search) for conversation history
 - **Smart Home**: Home Assistant REST API
 - **Protocol**: Zigbee (fully local, no internet required)
 

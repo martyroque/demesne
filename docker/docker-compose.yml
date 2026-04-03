@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   whisper:
     container_name: whisper
@@ -69,3 +67,15 @@ services:
     depends_on:
       - openwakeword
     restart: unless-stopped
+
+  qdrant:
+    container_name: demesne-qdrant
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+volumes:
+  qdrant_storage:

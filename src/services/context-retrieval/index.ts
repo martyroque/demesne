@@ -1,7 +1,7 @@
 import { Store } from "nucleux";
 
-import DatabaseService from "../database";
 import EmbeddingService from "../embeddings";
+import QdrantService from "../qdrant";
 
 export interface ContextChunk {
   content: string;
@@ -20,8 +20,8 @@ export interface RetrievalOptions {
 }
 
 class ContextRetrievalService extends Store {
-  private dbService = this.inject(DatabaseService);
   private embeddingService = this.inject(EmbeddingService);
+  private qdrantService = this.inject(QdrantService);
 
   public isSearching = this.atom(false);
   public lastSearchTime = this.atom(0);
@@ -52,12 +52,26 @@ class ContextRetrievalService extends Store {
 
       const queryEmbedding = await this.embeddingService.embedText(query);
 
-      const results = await this.dbService.searchSimilar(
+      const filter = sessionId
+        ? { must: [{ key: "session_id", match: { value: sessionId } }] }
+        : undefined;
+
+      const qdrantResults = await this.qdrantService.search(
         queryEmbedding,
         maxResults * 2,
-        sessionId,
-        minSimilarity
+        filter
       );
+
+      const results = qdrantResults
+        .filter((r) => r.score >= minSimilarity)
+        .map((r) => ({
+          id: r.id,
+          sessionId: r.payload.session_id,
+          role: r.payload.role,
+          content: r.payload.content,
+          timestamp: r.payload.timestamp,
+          similarity: r.score,
+        }));
 
       const cutoffTime = Date.now() - excludeRecent * 1000;
       const filtered = results.filter((r) => r.timestamp < cutoffTime);
