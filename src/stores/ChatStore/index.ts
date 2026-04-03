@@ -16,12 +16,9 @@ const RECENT_COUNT = 12;
 
 const BASE_SYSTEM_PROMPT = `You are Zion, a helpful AI assistant integrated into a smart home system.
 
-You have access to the user's conversation history and can reference past discussions when relevant. When using context from past conversations, integrate it naturally without explicitly mentioning "I found in your history" - just use the information as if you remember it.
-
 Key capabilities:
 - Smart home control via Home Assistant
 - General knowledge and assistance
-- Memory of past conversations
 - Natural, conversational responses
 
 Current date: ${new Date().toLocaleDateString()}`;
@@ -34,6 +31,7 @@ class ChatStore extends Store {
     null
   );
   public lastContextUsed = this.atom<ContextChunk[]>([]);
+  public lastContextSessionId = this.atom<string | null>(null);
   public contextRetrievalTime = this.atom(0);
 
   private settingsStore = this.inject(SettingsStore);
@@ -127,6 +125,7 @@ class ChatStore extends Store {
 
     this.isLoading.value = true;
     this.lastContextUsed.value = [];
+    this.lastContextSessionId.value = null;
     this.contextRetrievalTime.value = 0;
 
     try {
@@ -189,12 +188,15 @@ class ChatStore extends Store {
         const fittedContext = this.trimContextToFit(relevantContext, 2000);
 
         this.lastContextUsed.value = fittedContext;
+        this.lastContextSessionId.value = sessionId;
 
         const contextSection =
           this.contextRetrievalService.formatContextForPrompt(fittedContext);
         const messages = this.chatHistoryStore.messages.value;
         const recentMessages = messages.slice(-10);
-        const systemPrompt = BASE_SYSTEM_PROMPT + contextSection;
+        const systemPrompt = contextSection
+          ? BASE_SYSTEM_PROMPT + contextSection
+          : BASE_SYSTEM_PROMPT;
 
         const fullMessages: Message[] = [
           { role: "system", content: systemPrompt },
