@@ -42,7 +42,9 @@ export const Chat: React.FC = () => {
   const isSpeaking = useValue(piperService.isSpeaking);
   const isWakeWordListening = useValue(wakeWordService.isListening);
   const lastContextUsed = useValue(chatStore.lastContextUsed);
+  const lastContextSessionId = useValue(chatStore.lastContextSessionId);
   const contextRetrievalTime = useValue(chatStore.contextRetrievalTime);
+  const currentSessionId = useValue(chatHistoryStore.currentSessionId);
   const homeControlToast = useValue(chatStore.homeControlToast);
 
   const [input, setInput] = useState("");
@@ -158,7 +160,8 @@ export const Chat: React.FC = () => {
 
                 {msg.role === "assistant" &&
                   idx === messages.length - 1 &&
-                  lastContextUsed.length > 0 && (
+                  lastContextUsed.length > 0 &&
+                  lastContextSessionId === currentSessionId && (
                     <ContextSources
                       sources={lastContextUsed}
                       className="mt-3"
@@ -177,7 +180,7 @@ export const Chat: React.FC = () => {
                   <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-primary" />
                 </div>
 
-                {lastContextUsed.length > 0 && (
+                {lastContextUsed.length > 0 && lastContextSessionId === currentSessionId && (
                   <div className="mt-3">
                     <ContextSources sources={lastContextUsed} />
                     {contextRetrievalTime > 0 && (
