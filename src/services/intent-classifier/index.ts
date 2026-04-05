@@ -81,6 +81,9 @@ Response: GENERAL_CHAT
 User: "What's the current temperature?"
 Response: HOME_CONTROL
 
+User: "What's the temperature in the office?"
+Response: HOME_CONTROL
+
 User: "What's the humidity in the bedroom?"
 Response: HOME_CONTROL
 

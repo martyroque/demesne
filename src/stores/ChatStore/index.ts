@@ -138,11 +138,17 @@ class ChatStore extends Store {
           userMessage
         );
 
-        const result =
+        const { speech, continueConversation } =
           await this.homeAssistantService.processConversation(message);
+
+        if (continueConversation) {
+          // TODO: Support continuing the conversation from chat/voice
+          console.log("HA expects a follow-up response");
+        }
+
         const assistantMessage: Message = {
           role: "assistant",
-          content: result,
+          content: speech,
         };
 
         this.chatHistoryStore.addMessageToSession(
@@ -153,7 +159,7 @@ class ChatStore extends Store {
         this.isLoading.value = false;
 
         const toastId = Date.now();
-        this.homeControlToast.value = { message: result, id: toastId };
+        this.homeControlToast.value = { message: speech, id: toastId };
         setTimeout(() => {
           if (
             this.homeControlToast.value &&
@@ -163,7 +169,7 @@ class ChatStore extends Store {
           }
         }, 4000);
 
-        await this.speakResponse(result);
+        await this.speakResponse(speech);
       } else {
         this.chatHistoryStore.addMessage(userMessage);
 
